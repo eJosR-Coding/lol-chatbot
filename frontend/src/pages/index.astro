@@ -634,6 +634,9 @@ const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000
       ping();
       setInterval(ping, 15000);
 
+      let history = [];
+      const HISTORY_MAX = 12;
+
       async function send(message) {
         bubble({ role: "user", html: escapeHtml(message) });
         showTyping();
@@ -642,17 +645,21 @@ const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000
           const r = await fetch(BACKEND_URL + "/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message }),
+            body: JSON.stringify({ message, history }),
           });
           if (!r.ok) throw new Error("HTTP " + r.status);
           const data = await r.json();
           removeTyping();
           bubble({ role: "bot", html: escapeHtml(data.reply) });
+          history.push({ role: "user", content: message });
+          history.push({ role: "assistant", content: data.reply });
+          if (history.length > HISTORY_MAX) history = history.slice(-HISTORY_MAX);
           kbMatch.textContent = data.matched_question || "—";
           kbMatch.title = data.matched_question || "";
           kbScore.textContent = data.score.toFixed(3);
           scoreBar.style.width = Math.max(0, Math.min(1, data.score)) * 100 + "%";
-          scoreBar.style.background = data.below_threshold ? "#ffb4ab" : "#4fdbcc";
+          const ctxColor = !data.used_context ? "#8d9197" : data.below_threshold ? "#ffb4ab" : "#4fdbcc";
+          scoreBar.style.background = ctxColor;
         } catch (err) {
           removeTyping();
           bubble({
@@ -679,6 +686,7 @@ const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000
 
       newChatBtn.addEventListener("click", () => {
         chatLog.innerHTML = "";
+        history = [];
         bubble({
           role: "bot",
           html:
