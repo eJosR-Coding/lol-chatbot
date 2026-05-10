@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from .kb import KNOWLEDGE_BASE
 from .rag import LolRetriever
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
@@ -70,6 +71,11 @@ def build_user_prompt(user_msg: str, retrieval: dict) -> str:
 @app.get("/health")
 async def health() -> dict:
     return {"ok": True, "model": OLLAMA_MODEL}
+
+
+@app.get("/kb")
+async def get_kb() -> dict:
+    return {"count": len(KNOWLEDGE_BASE), "entries": KNOWLEDGE_BASE}
 
 
 @app.post("/chat", response_model=ChatResponse)
