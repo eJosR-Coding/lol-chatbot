@@ -1,0 +1,640 @@
+---
+const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+---
+
+<!DOCTYPE html>
+<html class="dark" lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>LoL RAG Chatbot — UNAB 2026</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&family=Geist:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <script is:inline id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#343536",
+              "surface-tint": "#b4c9e0",
+              "on-surface-variant": "#c3c7cd",
+              "on-tertiary-fixed-variant": "#444746",
+              "surface-bright": "#39393b",
+              surface: "#121315",
+              outline: "#8d9197",
+              primary: "#b4c9e0",
+              "on-error-container": "#ffdad6",
+              "tertiary-fixed-dim": "#c5c7c4",
+              secondary: "#4fdbcc",
+              "surface-container-lowest": "#0d0e10",
+              error: "#ffb4ab",
+              "inverse-primary": "#4d6074",
+              "on-primary-fixed-variant": "#35495c",
+              "tertiary-container": "#121514",
+              "secondary-fixed-dim": "#4fdbcc",
+              "on-secondary-fixed": "#00201d",
+              "inverse-surface": "#e4e2e3",
+              "on-primary-container": "#6d8196",
+              "on-secondary-container": "#003d37",
+              "on-secondary": "#003732",
+              "on-secondary-fixed-variant": "#005049",
+              "surface-dim": "#121315",
+              "surface-container-low": "#1b1c1d",
+              "secondary-container": "#00b1a3",
+              "on-tertiary": "#2e312f",
+              "on-surface": "#e4e2e3",
+              "surface-variant": "#343536",
+              tertiary: "#c5c7c4",
+              "on-tertiary-container": "#7c7f7d",
+              "on-error": "#690005",
+              "on-primary-fixed": "#071d2e",
+              "on-background": "#e4e2e3",
+              "surface-container": "#1f2021",
+              "secondary-fixed": "#70f8e8",
+              "on-tertiary-fixed": "#191c1b",
+              background: "#121315",
+              "on-primary": "#1e3244",
+              "error-container": "#93000a",
+              "primary-fixed-dim": "#b4c9e0",
+              "outline-variant": "#43474c",
+              "surface-container-high": "#292a2b",
+              "tertiary-fixed": "#e1e3e0",
+              "primary-container": "#011627",
+              "inverse-on-surface": "#303032",
+              "primary-fixed": "#d0e5fc",
+            },
+            borderRadius: {
+              DEFAULT: "0.125rem",
+              lg: "0.25rem",
+              xl: "0.5rem",
+              full: "0.75rem",
+            },
+            spacing: {
+              md: "24px",
+              xl: "80px",
+              "container-max": "1200px",
+              xs: "4px",
+              sm: "12px",
+              base: "8px",
+              lg: "48px",
+              gutter: "24px",
+            },
+            fontFamily: {
+              "body-lg": ["Inter"],
+              "code-sm": ["Geist"],
+              "label-caps": ["Montserrat"],
+              "headline-xl": ["Montserrat"],
+              "headline-md": ["Montserrat"],
+              "headline-xl-mobile": ["Montserrat"],
+              "body-md": ["Inter"],
+            },
+            fontSize: {
+              "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+              "code-sm": [
+                "13px",
+                { lineHeight: "20px", letterSpacing: "0.05em", fontWeight: "500" },
+              ],
+              "label-caps": [
+                "12px",
+                { lineHeight: "16px", letterSpacing: "0.1em", fontWeight: "700" },
+              ],
+              "headline-xl": [
+                "40px",
+                { lineHeight: "48px", letterSpacing: "-0.02em", fontWeight: "700" },
+              ],
+              "headline-md": [
+                "24px",
+                { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" },
+              ],
+              "headline-xl-mobile": [
+                "32px",
+                { lineHeight: "40px", fontWeight: "700" },
+              ],
+              "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+            },
+          },
+        },
+      };
+    </script>
+    <style is:global>
+      .glass-panel {
+        background-color: rgba(11, 34, 57, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-top: 0.5px solid rgba(255, 255, 255, 0.4);
+        border-left: 0.5px solid rgba(255, 255, 255, 0.4);
+      }
+      .tech-chip {
+        background-color: rgba(79, 219, 204, 0.1);
+        border: 1px solid rgba(79, 219, 204, 0.3);
+      }
+      .msg-bubble {
+        max-width: 80%;
+      }
+      .typing-dot {
+        animation: typingPulse 1.2s infinite ease-in-out;
+      }
+      .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+      .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes typingPulse {
+        0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+        40% { opacity: 1; transform: translateY(-2px); }
+      }
+      /* Hide scrollbar but keep scroll functionality */
+      #chat-log::-webkit-scrollbar { width: 6px; }
+      #chat-log::-webkit-scrollbar-track { background: transparent; }
+      #chat-log::-webkit-scrollbar-thumb { background: rgba(79,219,204,0.2); border-radius: 3px; }
+    </style>
+  </head>
+  <body
+    class="bg-background text-on-surface font-body-lg min-h-screen flex flex-col md:flex-row overflow-hidden"
+    data-backend={BACKEND_URL}
+  >
+    <!-- SideNavBar (Desktop) -->
+    <nav
+      class="hidden md:flex bg-surface-container dark:bg-surface-container border-r border-white/5 w-64 h-screen fixed left-0 top-0 flex-col pt-20 pb-4 z-40"
+    >
+      <div class="px-md mb-xl flex flex-col items-center text-center">
+        <div
+          class="w-16 h-16 rounded-full bg-primary-container border border-secondary/30 mb-sm overflow-hidden flex items-center justify-center"
+        >
+          <span
+            class="material-symbols-outlined text-secondary text-3xl"
+            style="font-variation-settings: 'FILL' 1;">smart_toy</span
+          >
+        </div>
+        <h1 class="font-headline-md text-headline-md text-secondary">UNAB 2026</h1>
+        <p class="font-label-caps text-label-caps text-on-surface-variant mt-xs">
+          LoL RAG Chatbot
+        </p>
+      </div>
+      <div class="px-md mb-lg">
+        <button
+          id="new-chat-btn"
+          class="w-full bg-secondary text-primary-container font-label-caps text-label-caps py-sm rounded border border-secondary hover:bg-secondary/90 transition-colors flex items-center justify-center gap-base"
+        >
+          <span
+            class="material-symbols-outlined"
+            style="font-variation-settings: 'FILL' 1;">add</span
+          >
+          New Analysis
+        </button>
+      </div>
+      <div class="flex-1 flex flex-col gap-xs px-base">
+        <a
+          class="flex items-center gap-sm px-sm py-sm rounded bg-secondary/10 text-secondary border-l-2 border-secondary scale-95 active:scale-90 duration-150 font-label-caps text-label-caps"
+          href="#"
+        >
+          <span
+            class="material-symbols-outlined"
+            style="font-variation-settings: 'FILL' 1;">chat</span
+          >
+          Neural Chat
+        </a>
+        <a
+          class="flex items-center gap-sm px-sm py-sm rounded text-on-surface-variant hover:bg-surface-container-highest transition-all scale-95 active:scale-90 duration-150 font-label-caps text-label-caps"
+          href="#"
+        >
+          <span class="material-symbols-outlined">analytics</span>
+          RAG Metrics
+        </a>
+        <a
+          class="flex items-center gap-sm px-sm py-sm rounded text-on-surface-variant hover:bg-surface-container-highest transition-all scale-95 active:scale-90 duration-150 font-label-caps text-label-caps"
+          href="#"
+        >
+          <span class="material-symbols-outlined">account_tree</span>
+          Architecture
+        </a>
+        <a
+          class="flex items-center gap-sm px-sm py-sm rounded text-on-surface-variant hover:bg-surface-container-highest transition-all scale-95 active:scale-90 duration-150 font-label-caps text-label-caps"
+          href="#"
+        >
+          <span class="material-symbols-outlined">library_books</span>
+          Knowledge Base
+        </a>
+        <a
+          class="flex items-center gap-sm px-sm py-sm rounded text-on-surface-variant hover:bg-surface-container-highest transition-all scale-95 active:scale-90 duration-150 font-label-caps text-label-caps"
+          href="#"
+        >
+          <span class="material-symbols-outlined">query_stats</span>
+          Visual Analysis
+        </a>
+      </div>
+      <div class="px-base mt-auto pt-md border-t border-white/5 flex flex-col gap-xs">
+        <a
+          class="flex items-center gap-sm px-sm py-sm rounded text-on-surface-variant hover:bg-surface-container-highest transition-all scale-95 active:scale-90 duration-150 font-label-caps text-label-caps"
+          href="#"
+        >
+          <span class="material-symbols-outlined">help_outline</span>
+          Documentation
+        </a>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col md:ml-64 h-screen overflow-hidden">
+      <!-- TopAppBar -->
+      <header
+        class="bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-md py-base w-full sticky top-0 z-50"
+      >
+        <div class="flex items-center gap-sm">
+          <div class="md:hidden">
+            <span
+              class="material-symbols-outlined text-secondary cursor-pointer active:opacity-80"
+              >menu</span
+            >
+          </div>
+          <span
+            class="font-headline-md text-headline-md font-bold text-secondary tracking-tight md:hidden"
+            >UNAB 2026</span
+          >
+          <span
+            class="font-label-caps text-label-caps text-on-surface-variant hidden md:block"
+            >SYSTEM / NEURAL CHAT</span
+          >
+        </div>
+        <div class="flex items-center gap-md">
+          <span
+            class="material-symbols-outlined text-on-surface-variant hover:text-secondary transition-colors duration-200 cursor-pointer active:opacity-80"
+            >notifications</span
+          >
+          <span
+            class="material-symbols-outlined text-on-surface-variant hover:text-secondary transition-colors duration-200 cursor-pointer active:opacity-80"
+            >settings</span
+          >
+          <div
+            class="w-8 h-8 rounded-full bg-surface-container border border-white/10 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined text-secondary text-base">person</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Canvas -->
+      <main class="flex-1 overflow-y-auto p-md md:p-lg">
+        <div class="max-w-container-max mx-auto w-full flex flex-col gap-lg">
+          <!-- Page Header -->
+          <div>
+            <h2 class="font-headline-xl text-headline-xl text-on-surface mb-xs">
+              Neural Chat
+            </h2>
+            <p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">
+              Pregunta cualquier cosa sobre League of Legends. El sistema recupera
+              el contexto más cercano del Knowledge Base con sentence-transformers
+              y lo pasa al modelo qwen2.5:0.5b corriendo local en Ollama.
+            </p>
+          </div>
+
+          <!-- Bento Grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-md">
+            <!-- Chat Panel -->
+            <div
+              class="lg:col-span-2 glass-panel rounded-xl p-md md:p-lg flex flex-col relative overflow-hidden"
+              style="min-height: 560px;"
+            >
+              <div class="flex justify-between items-start mb-md">
+                <h3 class="font-label-caps text-label-caps text-secondary">
+                  CONVERSATION STREAM
+                </h3>
+                <div
+                  id="trace-chip"
+                  class="flex items-center gap-xs tech-chip rounded px-sm py-xs font-code-sm text-code-sm text-secondary"
+                >
+                  <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                  TRACING ACTIVE
+                </div>
+              </div>
+
+              <!-- Messages -->
+              <div
+                id="chat-log"
+                class="flex-1 overflow-y-auto pr-sm flex flex-col gap-sm"
+                style="min-height: 360px; max-height: 460px;"
+              >
+                <!-- seed message -->
+                <div class="flex items-start gap-sm">
+                  <div
+                    class="w-8 h-8 rounded-full bg-primary/10 border border-secondary/40 flex items-center justify-center shrink-0"
+                  >
+                    <span class="material-symbols-outlined text-secondary text-base"
+                      >smart_toy</span
+                    >
+                  </div>
+                  <div
+                    class="msg-bubble bg-surface-container-low border border-white/5 rounded-xl rounded-tl px-md py-sm font-body-md text-body-md text-on-surface"
+                  >
+                    Hola bro. Pregúntame sobre LoL: <span class="text-secondary">wave</span>,
+                    <span class="text-secondary">canon</span>,
+                    <span class="text-secondary">gank</span>,
+                    <span class="text-secondary">poke</span>... lo que sea.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Input -->
+              <form
+                id="chat-form"
+                class="mt-md flex items-center gap-sm bg-surface-container-lowest border border-white/10 rounded-xl px-sm py-xs focus-within:border-secondary/60 transition-colors"
+              >
+                <span class="material-symbols-outlined text-on-surface-variant"
+                  >chat</span
+                >
+                <input
+                  id="chat-input"
+                  type="text"
+                  autocomplete="off"
+                  placeholder="qué onda con el canon..."
+                  class="flex-1 bg-transparent border-0 outline-none focus:ring-0 text-on-surface placeholder:text-on-surface-variant/60 font-body-md py-sm"
+                />
+                <button
+                  id="send-btn"
+                  type="submit"
+                  class="bg-secondary text-primary-container rounded-full w-10 h-10 flex items-center justify-center hover:bg-secondary/90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-variation-settings: 'FILL' 1;">send</span
+                  >
+                </button>
+              </form>
+            </div>
+
+            <!-- Side Cards -->
+            <div class="flex flex-col gap-md">
+              <!-- Last Retrieval -->
+              <div class="glass-panel rounded-xl p-md flex flex-col">
+                <h3
+                  class="font-label-caps text-label-caps text-on-surface-variant mb-md flex items-center gap-xs"
+                >
+                  <span class="material-symbols-outlined text-base"
+                    >compare_arrows</span
+                  >
+                  LAST RETRIEVAL
+                </h3>
+                <div class="flex flex-col gap-sm">
+                  <div
+                    class="flex justify-between items-center border-b border-white/5 pb-sm"
+                  >
+                    <span class="font-body-md text-body-md text-on-surface">Match KB</span>
+                    <span
+                      id="kb-match"
+                      class="font-code-sm text-code-sm text-secondary truncate max-w-[140px] text-right"
+                      >—</span
+                    >
+                  </div>
+                  <div
+                    class="flex justify-between items-center border-b border-white/5 pb-sm"
+                  >
+                    <span class="font-body-md text-body-md text-on-surface"
+                      >Cosine score</span
+                    >
+                    <span
+                      id="kb-score"
+                      class="font-code-sm text-code-sm text-on-surface-variant">—</span
+                    >
+                  </div>
+                  <div class="pt-xs">
+                    <div
+                      class="w-full h-1 bg-surface-container rounded-full overflow-hidden"
+                    >
+                      <div
+                        id="score-bar"
+                        class="h-full bg-secondary transition-all duration-500"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                    <div class="flex justify-between mt-xs">
+                      <span class="font-code-sm text-code-sm text-on-surface-variant/60"
+                        >0.0</span
+                      >
+                      <span class="font-code-sm text-code-sm text-on-surface-variant/60"
+                        >threshold 0.3</span
+                      >
+                      <span class="font-code-sm text-code-sm text-on-surface-variant/60"
+                        >1.0</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- System Status -->
+              <div class="glass-panel rounded-xl p-md flex-1">
+                <h3
+                  class="font-label-caps text-label-caps text-on-surface-variant mb-md flex items-center gap-xs"
+                >
+                  <span class="material-symbols-outlined text-base">memory</span>
+                  SYSTEM STATUS
+                </h3>
+                <div class="flex flex-col gap-sm">
+                  <div
+                    class="flex justify-between items-center border-b border-white/5 pb-sm"
+                  >
+                    <span class="font-body-md text-body-md text-on-surface"
+                      >Embedder</span
+                    >
+                    <span class="font-code-sm text-code-sm text-secondary"
+                      >MiniLM-L12-v2</span
+                    >
+                  </div>
+                  <div
+                    class="flex justify-between items-center border-b border-white/5 pb-sm"
+                  >
+                    <span class="font-body-md text-body-md text-on-surface"
+                      >Generator</span
+                    >
+                    <span class="font-code-sm text-code-sm text-secondary"
+                      >qwen2.5:0.5b</span
+                    >
+                  </div>
+                  <div
+                    class="flex justify-between items-center border-b border-white/5 pb-sm"
+                  >
+                    <span class="font-body-md text-body-md text-on-surface"
+                      >Embedding dim</span
+                    >
+                    <span class="font-code-sm text-code-sm text-on-surface-variant"
+                      >384</span
+                    >
+                  </div>
+                  <div class="flex justify-between items-center pt-xs">
+                    <span class="font-body-md text-body-md text-on-surface">Backend</span>
+                    <div
+                      id="backend-status"
+                      class="flex items-center gap-xs text-secondary font-code-sm text-code-sm"
+                    >
+                      <span class="w-2 h-2 rounded-full bg-secondary"></span>
+                      ONLINE
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script is:inline define:vars={{ BACKEND_URL }}>
+      const chatLog = document.getElementById("chat-log");
+      const form = document.getElementById("chat-form");
+      const input = document.getElementById("chat-input");
+      const sendBtn = document.getElementById("send-btn");
+      const kbMatch = document.getElementById("kb-match");
+      const kbScore = document.getElementById("kb-score");
+      const scoreBar = document.getElementById("score-bar");
+      const backendStatus = document.getElementById("backend-status");
+      const newChatBtn = document.getElementById("new-chat-btn");
+
+      function bubble({ role, html }) {
+        const wrap = document.createElement("div");
+        wrap.className =
+          "flex items-start gap-sm " + (role === "user" ? "justify-end" : "");
+
+        const avatar = document.createElement("div");
+        avatar.className =
+          "w-8 h-8 rounded-full border flex items-center justify-center shrink-0 " +
+          (role === "user"
+            ? "bg-secondary/20 border-secondary/60 order-2"
+            : "bg-primary/10 border-secondary/40");
+        avatar.innerHTML =
+          '<span class="material-symbols-outlined text-secondary text-base">' +
+          (role === "user" ? "person" : "smart_toy") +
+          "</span>";
+
+        const msg = document.createElement("div");
+        const userClasses =
+          "msg-bubble bg-secondary/10 border border-secondary/30 rounded-xl rounded-tr px-md py-sm font-body-md text-body-md text-on-surface";
+        const botClasses =
+          "msg-bubble bg-surface-container-low border border-white/5 rounded-xl rounded-tl px-md py-sm font-body-md text-body-md text-on-surface";
+        msg.className = role === "user" ? userClasses : botClasses;
+        msg.innerHTML = html;
+
+        wrap.appendChild(avatar);
+        wrap.appendChild(msg);
+        chatLog.appendChild(wrap);
+        chatLog.scrollTop = chatLog.scrollHeight;
+        return msg;
+      }
+
+      function escapeHtml(s) {
+        return s
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function showTyping() {
+        const wrap = document.createElement("div");
+        wrap.id = "typing";
+        wrap.className = "flex items-start gap-sm";
+        wrap.innerHTML =
+          '<div class="w-8 h-8 rounded-full bg-primary/10 border border-secondary/40 flex items-center justify-center shrink-0">' +
+          '<span class="material-symbols-outlined text-secondary text-base">smart_toy</span>' +
+          "</div>" +
+          '<div class="msg-bubble bg-surface-container-low border border-white/5 rounded-xl rounded-tl px-md py-sm flex items-center gap-1">' +
+          '<span class="typing-dot w-1.5 h-1.5 rounded-full bg-secondary"></span>' +
+          '<span class="typing-dot w-1.5 h-1.5 rounded-full bg-secondary"></span>' +
+          '<span class="typing-dot w-1.5 h-1.5 rounded-full bg-secondary"></span>' +
+          "</div>";
+        chatLog.appendChild(wrap);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
+      function removeTyping() {
+        const t = document.getElementById("typing");
+        if (t) t.remove();
+      }
+
+      function setStatus(online) {
+        if (online) {
+          backendStatus.innerHTML =
+            '<span class="w-2 h-2 rounded-full bg-secondary"></span>ONLINE';
+          backendStatus.className =
+            "flex items-center gap-xs text-secondary font-code-sm text-code-sm";
+        } else {
+          backendStatus.innerHTML =
+            '<span class="w-2 h-2 rounded-full bg-error"></span>OFFLINE';
+          backendStatus.className =
+            "flex items-center gap-xs text-error font-code-sm text-code-sm";
+        }
+      }
+
+      async function ping() {
+        try {
+          const r = await fetch(BACKEND_URL + "/health");
+          setStatus(r.ok);
+        } catch {
+          setStatus(false);
+        }
+      }
+      ping();
+      setInterval(ping, 15000);
+
+      async function send(message) {
+        bubble({ role: "user", html: escapeHtml(message) });
+        showTyping();
+        sendBtn.disabled = true;
+        try {
+          const r = await fetch(BACKEND_URL + "/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message }),
+          });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const data = await r.json();
+          removeTyping();
+          bubble({ role: "bot", html: escapeHtml(data.reply) });
+          kbMatch.textContent = data.matched_question || "—";
+          kbMatch.title = data.matched_question || "";
+          kbScore.textContent = data.score.toFixed(3);
+          scoreBar.style.width = Math.max(0, Math.min(1, data.score)) * 100 + "%";
+          scoreBar.style.background = data.below_threshold ? "#ffb4ab" : "#4fdbcc";
+        } catch (err) {
+          removeTyping();
+          bubble({
+            role: "bot",
+            html:
+              '<span class="text-error">Error: no pude alcanzar el backend.</span> <span class="opacity-60">' +
+              escapeHtml(String(err)) +
+              "</span>",
+          });
+          setStatus(false);
+        } finally {
+          sendBtn.disabled = false;
+          input.focus();
+        }
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const v = input.value.trim();
+        if (!v) return;
+        input.value = "";
+        send(v);
+      });
+
+      newChatBtn.addEventListener("click", () => {
+        chatLog.innerHTML = "";
+        bubble({
+          role: "bot",
+          html:
+            'Nueva sesión. Tira tu pregunta sobre LoL — <span class="text-secondary">splitpush</span>, <span class="text-secondary">roamear</span>, <span class="text-secondary">all-in</span>, lo que sea.',
+        });
+        kbMatch.textContent = "—";
+        kbScore.textContent = "—";
+        scoreBar.style.width = "0%";
+      });
+    </script>
+  </body>
+</html>
