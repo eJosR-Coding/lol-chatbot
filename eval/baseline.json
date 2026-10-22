@@ -1,7 +1,32 @@
 {
-  "description": "Aggregate results of the v1 pipeline (question-only embeddings, top-1 cosine, gate at 0.45 that still called the LLM) on both evaluation sets, recorded before any v2 change. Dev numbers come from eval/results.md at commit 7bc0f64; held-out numbers were measured once with the v1 retriever (commit f3dc94c) right after eval/heldout.json was committed.",
+  "description": "Aggregate results of the v1 pipeline (question-only embeddings, top-1 cosine, gate at 0.45 that still called the LLM) on both evaluation sets, recorded before any v2 change. Dev numbers come from eval/results.md at commit 7bc0f64; held-out numbers were measured once with the v1 retriever (commit f3dc94c) right after eval/heldout.json was committed. The fresh set (eval/fresh.json) was measured with the v1 retriever from commit f3dc94c after it was committed.",
   "pipeline": "v1",
   "threshold": 0.45,
-  "dev": {"in_domain_top1": 6, "in_domain_accepted_correct": 6, "in_domain_n": 15, "uncovered_rejected": 5, "uncovered_n": 8, "out_of_domain_rejected": 7, "out_of_domain_n": 7},
-  "heldout": {"in_domain_top1": 9, "in_domain_accepted_correct": 9, "in_domain_n": 15, "uncovered_rejected": 4, "uncovered_n": 8, "out_of_domain_rejected": 6, "out_of_domain_n": 7}
+  "dev": {
+    "in_domain_top1": 6,
+    "in_domain_accepted_correct": 6,
+    "in_domain_n": 15,
+    "uncovered_rejected": 5,
+    "uncovered_n": 8,
+    "out_of_domain_rejected": 7,
+    "out_of_domain_n": 7
+  },
+  "heldout": {
+    "in_domain_top1": 9,
+    "in_domain_accepted_correct": 9,
+    "in_domain_n": 15,
+    "uncovered_rejected": 4,
+    "uncovered_n": 8,
+    "out_of_domain_rejected": 6,
+    "out_of_domain_n": 7
+  },
+  "fresh": {
+    "in_domain_top1": 6,
+    "in_domain_accepted_correct": 6,
+    "in_domain_n": 10,
+    "uncovered_rejected": 2,
+    "uncovered_n": 6,
+    "out_of_domain_rejected": 3,
+    "out_of_domain_n": 6
+  }
 }

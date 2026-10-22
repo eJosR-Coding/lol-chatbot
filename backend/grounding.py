@@ -22,8 +22,10 @@ SYSTEM_PROMPT = (
 
 LLM_OPTIONS = {"temperature": 0.1, "top_p": 0.8, "num_predict": 120, "repeat_penalty": 1.1}
 
-# Rewrites must keep at least this share of their content words from the source.
-MIN_OVERLAP = 0.6
+# A 0.5B model paraphrases loosely and invents details, so a rewrite is only kept when at least
+# this share of its content words (compared by 5-letter stem) comes from the source, the question
+# or the entry aliases. Everything else falls back to the KB text.
+MIN_OVERLAP = 0.8
 MAX_LENGTH_RATIO = 2.5
 
 _STOPWORDS = {
@@ -37,9 +39,15 @@ _STOPWORDS = {
     "siempre", "normalmente", "decir", "dice", "llama", "llaman", "significa",
     "refiere", "usa", "usan", "usar", "sirve", "sirven", "forma", "manera",
 }
+# Names of the game itself are not inventions.
+_GAME_NAMES = {"league", "legends", "riot", "lol"}
 _NON_SPANISH = re.compile(r"[぀-ヿ㐀-鿿가-힯Ѐ-ӿ]")
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
 _CAPITALISED = re.compile(r"(?<![.!?¿¡\n]\s)(?<!^)\b[A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,}")
+
+
+def _stem(word: str) -> str:
+    return word[:5]
 
 
 def refusal(suggestions: list[Entry]) -> str:
@@ -75,11 +83,7 @@ def clean_reply(text: str) -> str:
 
 
 def _content_words(text: str) -> list[str]:
-    return [t for t in tokens(text) if len(t) >= 4 and t not in _STOPWORDS and not t.isdigit()]
-
-
-def _stem(word: str) -> str:
-    return word[:5]
+    return [t for t in tokens(text) if len(t) >= 4 and t not in _STOPWORDS and t not in _GAME_NAMES and not t.isdigit()]
 
 
 def check_rewrite(rewrite: str, entry: Entry, message: str) -> tuple[bool, str]:
@@ -96,8 +100,12 @@ def check_rewrite(rewrite: str, entry: Entry, message: str) -> tuple[bool, str]:
     if extra:
         return False, f"new numbers: {sorted(extra)}"
     allowed_norm = normalize(allowed_text)
+    known = {t for t in tokens(allowed_text) if len(t) >= 4} | _GAME_NAMES
     new_names = [
-        n for n in _CAPITALISED.findall(rewrite) if normalize(n) not in allowed_norm
+        n
+        for n in _CAPITALISED.findall(rewrite)
+        if normalize(n) not in allowed_norm
+        and not any(t.startswith(normalize(n)[:4]) or normalize(n).startswith(t) for t in known)
     ]
     if new_names:
         return False, f"new names: {new_names}"
