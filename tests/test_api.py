@@ -47,16 +47,19 @@ def test_above_the_gate_a_faithful_rewrite_is_returned(retriever):
         ("Es un personaje inventado por la empresa en el año pasado para animar torneos.", "overlap"),
         ("Un tank 是 un campeón resistente.", "script"),
         ("", "empty"),
+        ("Un gank es una emboscada, una emboscada del jungler a un carril para conseguir una kill.", "duplicated_word"),
+        ("Un campeón resistente que absorbe daño en las peleas de equipo.", "dropped_term"),
     ],
 )
 def test_drifting_rewrite_falls_back_to_the_kb_answer(retriever, drifted, reason):
     llm = LLMStub(reply=drifted)
+    question, source = ("¿Qué es un gank?", ENTRIES[1]) if "gank" in drifted else ("¿Qué es un tank?", ENTRIES[0])
     with client_for(retriever, llm) as c:
-        body = chat(c, "¿Qué es un tank?").json()
+        body = chat(c, question).json()
     assert llm.chat_calls == 1
-    assert body["mode"] == "verbatim" and body["reply"] == ENTRIES[0].answer
+    assert body["mode"] == "verbatim" and body["reply"] == source.answer
     assert body["reason"].startswith("drift") and reason in body["reason"]
-    assert body["source_id"] == 1
+    assert body["source_id"] == source.id
 
 
 def test_unavailable_llm_returns_the_kb_answer(retriever):
@@ -103,3 +106,9 @@ def test_health_reports_unavailable_llm(retriever):
     )
     with TestClient(create_app(retriever=retriever, http=down)) as c:
         assert c.get("/health").json()["llm"] is False
+
+
+def test_a_rewrite_identical_to_the_source_is_labelled_verbatim(retriever):
+    with client_for(retriever, LLMStub(reply=ENTRIES[0].answer)) as c:
+        body = chat(c, "¿Qué es un tank?").json()
+    assert body["mode"] == "verbatim" and body["reason"] == "unchanged" and body["reply"] == ENTRIES[0].answer

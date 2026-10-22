@@ -49,3 +49,20 @@ def headwords(question: str) -> list[str]:
     """Terms a glossary question is about: '¿Qué es AA o autoataque?' -> ['aa', 'autoataque']."""
     parts = re.split(r"\s+o\s+|/", subject(question))
     return [p.strip() for p in parts if p.strip()]
+
+
+STEM_MIN = 5
+
+
+def shares_stem(a: str, b: str) -> bool:
+    """True when two tokens are the same word or share a stem ("wardeos" ~ "wardear")."""
+    if a == b:
+        return True
+    if len(a) < STEM_MIN or len(b) < STEM_MIN:
+        return False
+    common = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        common += 1
+    return common >= max(STEM_MIN, 0.75 * min(len(a), len(b)))

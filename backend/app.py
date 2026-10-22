@@ -79,6 +79,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.retriever = retriever or load_retriever(strict=STRICT_INDEX)
+        app.state.terms = grounding.domain_terms(app.state.retriever.entries)
         app.state.http = http or httpx.AsyncClient(base_url=OLLAMA_HOST, timeout=60.0)
         yield
         if http is None:
@@ -161,9 +162,11 @@ def create_app(
 
         raw = (resp.json().get("message") or {}).get("content", "")
         rewrite = grounding.clean_reply(raw)
-        ok, why = grounding.check_rewrite(rewrite, entry, msg)
+        ok, why = grounding.check_rewrite(rewrite, entry, msg, request.app.state.terms)
         if not ok:
             return ChatResponse(reply=entry.answer, mode="verbatim", reason=f"drift: {why}", **verbatim)
+        if grounding.same_text(rewrite, entry.answer):  # the model just copied the entry
+            return ChatResponse(reply=entry.answer, mode="verbatim", reason="unchanged", **verbatim)
         return ChatResponse(reply=rewrite, mode="rewrite", **verbatim)
 
     return app

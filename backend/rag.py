@@ -23,7 +23,7 @@ import numpy as np
 from .encoder import MODEL_NAME, Encoder, SentenceEncoder  # noqa: F401  (re-exported)
 from .ingest import KBIndex, ensure_index
 from .kb import Entry, load_entries
-from .text import normalize, strip_frame, tokens
+from .text import STEM_MIN, normalize, shares_stem, strip_frame, tokens
 
 # Retrieval gate: below this fused score the chatbot refuses and never calls the LLM.
 GATE_THRESHOLD = 0.70
@@ -32,8 +32,6 @@ LEXICAL_BONUS = 0.35
 # A lexical hit is a signal, not a verdict: dense similarity is trusted at this fraction
 # when no term of the entry appears in the query.
 TERM_DENSE_WEIGHT = 0.9
-# Terms shorter than this must match a whole token; longer ones may match by shared stem.
-STEM_MIN = 5
 FUZZY_RATIO = 0.88
 # Words used by at least this many glossary questions ("campeón", "habilidad") are too
 # generic to identify an entry on their own.
@@ -85,13 +83,7 @@ class Lexicon:
                 return 1.0
             if len(term) < STEM_MIN or len(tok) < STEM_MIN:
                 continue
-            # Shared stem: "wardeos" ~ "wardear", "trolleando" ~ "trollear", "tanquear" ~ "tanque".
-            stem = 0
-            for a, b in zip(term, tok):
-                if a != b:
-                    break
-                stem += 1
-            if stem >= max(STEM_MIN, 0.75 * min(len(term), len(tok))):
+            if shares_stem(term, tok):  # "wardeos" ~ "wardear", "tanquear" ~ "tanque"
                 best = max(best, 0.5)
             elif SequenceMatcher(None, term, tok).ratio() >= FUZZY_RATIO:
                 best = max(best, 0.4)

@@ -122,6 +122,8 @@ function meter(score: number, gate: number): HTMLElement {
 function howLine(meta: ChatReply): string {
   if (meta.mode === "rewrite") return `Rewritten by ${health?.model ?? "the local model"}; kept because it stayed close to the source.`;
   if (meta.reason === "llm_unavailable") return "Glossary text as stored: the local model is not running.";
+  if (/dropped_term|duplicated_word/.test(meta.reason))
+    return "Glossary text as stored: the model's rewrite dropped a glossary term or swapped a word, so it was not used.";
   if (meta.reason.startsWith("drift")) return "Glossary text as stored: the model's rewrite drifted from the source, so it was dropped.";
   return "Glossary text as stored.";
 }

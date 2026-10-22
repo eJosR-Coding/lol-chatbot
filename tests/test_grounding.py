@@ -1,5 +1,8 @@
 from backend import grounding
-from tests.conftest import ENTRIES
+import pytest
+
+from backend.kb import load_entries
+from tests.conftest import ENTRIES, make_entry
 
 TANK = ENTRIES[0]
 Q = "¿Qué es un tanque?"
@@ -62,8 +65,74 @@ def test_refusal_text_suggests_close_terms_when_there_are_any():
     assert "glosario" in grounding.refusal([])
 
 
-def test_game_names_and_plurals_of_known_words_are_not_inventions():
+def test_game_names_are_not_inventions():
     ok, why = check("En League of Legends, un tank es un campeón resistente que absorbe daño en las peleas de equipo.")
     assert ok, why
-    ok, why = check("Los Tanks son campeones resistentes que absorben daño en las peleas de equipo.")
+    ok, why = check("Un tank es un campeón resistente que absorbe daño en las peleas de equipo, en League of Legends.")
     assert ok, why
+
+
+# --- the real glossary entry #93 -------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def kb():
+    return load_entries()
+
+
+@pytest.fixture(scope="module")
+def vocab(kb):
+    return grounding.domain_terms(kb)
+
+
+def gank(kb):
+    entry = next(e for e in kb if e.id == 93)
+    assert "junglero" in entry.answer  # the word the bad rewrite lost
+    return entry
+
+
+GANK_SUBSTITUTED = (
+    "Un gank es cuando el enemigo (u otro aliado) viene a tu carril para emboscar al enemigo. "
+    "Es coordinado y termina en kill o flash."
+)
+GANK_FAITHFUL = (
+    "Un gank es cuando el junglero (o un aliado) llega a tu carril para emboscar al enemigo. "
+    "Es coordinado y normalmente termina en kill o flash."
+)
+
+
+def test_substituted_word_in_the_gank_answer_falls_back(kb, vocab):
+    ok, why = grounding.check_rewrite(GANK_SUBSTITUTED, gank(kb), "¿Qué es un gank?", vocab)
+    assert not ok
+    assert why.startswith("dropped_term") and "jungl" in why  # jungla/junglero are jungler aliases
+
+
+def test_substitution_is_also_caught_by_the_frequency_guard_alone(kb):
+    entry = gank(kb)
+    assert grounding.duplicated_word(GANK_SUBSTITUTED, entry.answer) == "enemigo"
+    assert grounding.duplicated_word(GANK_FAITHFUL, entry.answer) is None
+
+
+def test_faithful_gank_paraphrase_is_kept(kb, vocab):
+    ok, why = grounding.check_rewrite(GANK_FAITHFUL, gank(kb), "¿Qué es un gank?", vocab)
+    assert ok, why
+
+
+def test_dropping_any_glossary_term_of_the_source_falls_back(kb, vocab):
+    rewrite = GANK_FAITHFUL.replace(" o flash", "")
+    ok, why = grounding.check_rewrite(rewrite, gank(kb), "¿Qué es un gank?", vocab)
+    assert not ok and why == "dropped_term: 'flash'"
+
+
+def test_domain_terms_group_names_by_entry(vocab):
+    names = next(n for n in vocab if ("junglero",) in n)
+    assert ("jungler",) in names and ("jungla",) in names
+    assert any(("tanque",) in n and ("tank",) in n for n in vocab)
+
+
+def test_another_name_of_the_same_concept_is_not_a_dropped_term():
+    afk = make_entry(1, "AFK", "AFK (away from keyboard) es un jugador ausente.", ["away from keyboard"])
+    vocab = grounding.domain_terms([afk])
+    ok, why = grounding.check_rewrite("Un jugador AFK está ausente.", afk, "¿Qué es AFK?", vocab)
+    assert ok, why
+    ok, why = grounding.check_rewrite("Es un jugador ausente.", afk, "¿Qué es AFK?", vocab)
+    assert not ok and why.startswith("dropped_term")

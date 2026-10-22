@@ -7,9 +7,10 @@ chatbot returns the KB answer verbatim.
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 from .kb import Entry
-from .text import normalize, tokens
+from .text import normalize, shares_stem, tokens
 
 SYSTEM_PROMPT = (
     "Eres un asistente de League of Legends que habla español coloquial gamer. "
@@ -82,12 +83,66 @@ def clean_reply(text: str) -> str:
     return text.strip()
 
 
+def same_text(a: str, b: str) -> bool:
+    return normalize(" ".join(tokens(a))) == normalize(" ".join(tokens(b)))
+
+
 def _content_words(text: str) -> list[str]:
     return [t for t in tokens(text) if len(t) >= 4 and t not in _STOPWORDS and t not in _GAME_NAMES and not t.isdigit()]
 
 
-def check_rewrite(rewrite: str, entry: Entry, message: str) -> tuple[bool, str]:
-    """Return (ok, reason). ``reason`` explains a rejection and is empty when ok."""
+# One group of names per glossary entry: "AFK" and "away from keyboard" are the same concept.
+DomainTerms = list[frozenset[tuple[str, ...]]]
+
+
+def domain_terms(entries: list[Entry]) -> DomainTerms:
+    """Every glossary term and alias of the knowledge base, grouped by entry, as token tuples."""
+    return [
+        frozenset(tuple(tokens(name)) for name in e.names if tokens(name)) for e in entries
+    ]
+
+
+def _contains(term: tuple[str, ...], toks: list[str]) -> bool:
+    """Phrase match; single words also match by shared stem (like the lexical scorer)."""
+    if len(term) == 1:
+        return any(shares_stem(term[0], t) for t in toks)
+    n = len(term)
+    return any(tuple(toks[i : i + n]) == term for i in range(len(toks) - n + 1))
+
+
+def dropped_term(rewrite: str, source: str, terms: DomainTerms) -> str | None:
+    """A glossary concept the source answer uses that the rewrite no longer mentions.
+
+    For every entry with a term or alias in the source, at least one of that entry's names
+    must still appear in the rewrite (so "AFK" may become "away from keyboard", but a
+    "junglero" cannot silently turn into an "enemigo")."""
+    src, new = tokens(source), tokens(rewrite)
+    for names in terms:
+        in_source = sorted((t for t in names if _contains(t, src)), key=lambda t: (-len(t), t))
+        if in_source and not any(_contains(t, new) for t in names):
+            return " ".join(in_source[0])
+    return None
+
+
+def duplicated_word(rewrite: str, source: str) -> str | None:
+    """A content word of the source that the rewrite uses more often than the source does: the
+    signature of a substitution ("junglero" replaced by a second "enemigo"). Words the source
+    never uses are left to the overlap check."""
+    seen = Counter(_stem(w) for w in _content_words(source))
+    used = Counter(_stem(w) for w in _content_words(rewrite))
+    for word in _content_words(rewrite):
+        if seen[_stem(word)] and used[_stem(word)] > seen[_stem(word)]:
+            return word
+    return None
+
+
+def check_rewrite(
+    rewrite: str, entry: Entry, message: str, terms: DomainTerms | None = None
+) -> tuple[bool, str]:
+    """Return (ok, reason). ``reason`` explains a rejection and is empty when ok.
+
+    ``terms`` is the glossary vocabulary of the whole KB (see ``domain_terms``); without it
+    only the names of ``entry`` itself are protected."""
     if not rewrite.strip():
         return False, "empty"
     if _NON_SPANISH.search(rewrite):
@@ -115,4 +170,10 @@ def check_rewrite(rewrite: str, entry: Entry, message: str) -> tuple[bool, str]:
         overlap = sum(_stem(w) in known for w in words) / len(words)
         if overlap < MIN_OVERLAP:
             return False, f"low overlap with the source ({overlap:.2f})"
+    missing = dropped_term(rewrite, entry.answer, terms if terms is not None else domain_terms([entry]))
+    if missing:
+        return False, f"dropped_term: {missing!r}"
+    repeated = duplicated_word(rewrite, entry.answer)
+    if repeated:
+        return False, f"duplicated_word: {repeated!r}"
     return True, ""
