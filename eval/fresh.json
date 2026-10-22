@@ -1,0 +1,31 @@
+{
+  "description": "Third evaluation set, written after the v2 retrieval design and gate were fixed and evaluated exactly once, as an unbiased check: the held-out aggregates were visible while building v2 (they informed the unknown-name penalty), this set was not. Smaller (10 / 6 / 6) and in the same format. expected_questions are exact KB 'pregunta' strings.",
+  "in_domain": [
+    {"q": "¿Qué significa hacer backdoor a un nexo?", "expected_questions": ["¿Qué es backdoor o BD?"]},
+    {"q": "¿Cómo vuelvo a la base para comprar objetos?", "expected_questions": ["¿Qué es Recall?", "¿Qué significa backear o presionar B?"]},
+    {"q": "Cuando matas a dos enemigos seguidos, ¿cómo se llama?", "expected_questions": ["¿Qué es un double kill?"]},
+    {"q": "¿Cuánto oro por segundo da un item de gold per 10?", "expected_questions": ["¿Qué es GP10?"]},
+    {"q": "¿Cómo se llama el efecto que te impide moverte pero sí atacar?", "expected_questions": ["¿Qué es root o snare?"]},
+    {"q": "¿Qué es la niebla de guerra?", "expected_questions": ["¿Qué es la fog of war?"]},
+    {"q": "¿Qué significa tener sustain?", "expected_questions": ["¿Qué es sustain?"]},
+    {"q": "What is a hypercarry?", "expected_questions": ["¿Qué es un hypercarry?"]},
+    {"q": "¿Qué hace un inhibidor?", "expected_questions": ["¿Qué es un inhibidor?"]},
+    {"q": "¿Qué significa que alguien sea main de un campeón?", "expected_questions": ["¿Qué es el main de un jugador?"]}
+  ],
+  "uncovered": [
+    {"q": "¿Cuánto daño hace la Q de Jhin?"},
+    {"q": "¿Qué items lleva Ashe en el parche actual?"},
+    {"q": "¿Quién es el campeón más jugado de la historia?"},
+    {"q": "¿Cómo funciona el sistema de honor?"},
+    {"q": "¿Cuánto cuestan 1380 RP en pesos chilenos?"},
+    {"q": "¿Cómo se activa el modo espectador?"}
+  ],
+  "out_of_domain": [
+    {"q": "¿Cómo se prepara el ceviche?"},
+    {"q": "¿Cuál es la fórmula química del agua?"},
+    {"q": "¿Cuánto mide el monte Everest?"},
+    {"q": "Explícame qué es una API REST."},
+    {"q": "¿Quién pintó la Mona Lisa?"},
+    {"q": "How do I tie a tie?"}
+  ]
+}
