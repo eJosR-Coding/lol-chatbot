@@ -18,7 +18,7 @@ interface ChatReply {
   gate: number;
   suggestions: Suggestion[];
 }
-interface Health { ok: boolean; model: string; llm: boolean; entries: number; gate: number }
+interface Health { ok: boolean; rewrite: boolean; model: string; llm: boolean | null; entries: number; gate: number }
 interface KbEntry { id: number; term: string; question: string; answer: string; aliases: string[]; category: string }
 type Turn = { role: "user"; text: string } | { role: "assistant"; text: string; meta: ChatReply };
 
@@ -85,10 +85,9 @@ async function refreshStatus(): Promise<boolean> {
     const r = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(4000) });
     if (!r.ok) throw new Error(String(r.status));
     health = (await r.json()) as Health;
-    setStatus(
-      health.llm ? "ok" : "degraded",
-      health.llm ? `Backend online · ${health.model}` : "Backend online · model off, glossary text only",
-    );
+    if (!health.rewrite) setStatus("ok", "Backend online · rewrite off");
+    else if (health.llm) setStatus("ok", `Backend online · rewrite on (experimental) · ${health.model}`);
+    else setStatus("degraded", "Backend online · rewrite on, model not running");
     offline.hidden = true;
     $("entry-count").textContent = String(health.entries);
     void ensureKb();
@@ -120,12 +119,13 @@ function meter(score: number, gate: number): HTMLElement {
 }
 
 function howLine(meta: ChatReply): string {
-  if (meta.mode === "rewrite") return `Rewritten by ${health?.model ?? "the local model"}; kept because it stayed close to the source.`;
-  if (meta.reason === "llm_unavailable") return "Glossary text as stored: the local model is not running.";
+  if (meta.mode === "rewrite")
+    return `Experimental rewrite by ${health?.model ?? "the local model"}; kept because it stayed close to the source.`;
+  if (meta.reason === "llm_unavailable") return "Glossary text as stored: rewrite is on but the local model is not running.";
   if (/dropped_term|duplicated_word/.test(meta.reason))
     return "Glossary text as stored: the model's rewrite dropped a glossary term or swapped a word, so it was not used.";
   if (meta.reason.startsWith("drift")) return "Glossary text as stored: the model's rewrite drifted from the source, so it was dropped.";
-  return "Glossary text as stored.";
+  return "Glossary text as stored. No model rewrote it.";
 }
 
 let sourceSeq = 0;
