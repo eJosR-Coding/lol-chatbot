@@ -1,6 +1,6 @@
 # LoL Glossary Chatbot
 
-A retrieval-augmented chatbot for League of Legends terminology: it finds the matching entry in a 239-term Spanish glossary, refuses what the glossary does not cover, and has a small local LLM rephrase the entry only when the rephrasing stays faithful to it.
+A retrieval-augmented chatbot for League of Legends terminology: it finds the matching entry in a 239-term Spanish glossary, and refuses what the glossary does not cover. By default it answers with the glossary text exactly as stored, and shows which entry it matched; an experimental, opt-in mode lets a small local LLM reword the entry.
 
 UNAB course project (2026), Santiago, Chile. The glossary and the answers are in Spanish; questions can be in Spanish or English.
 
@@ -20,11 +20,13 @@ flowchart TD
     Q[Question] --> S["Score every entry<br/>dense: embeddings of 'terms, aliases: answer'<br/>lexical: glossary terms and EN/ES aliases<br/>penalty: unknown capitalised names"]
     S --> B[Best entry]
     B --> G{"score >= 0.70?"}
-    G -- no --> R["Refusal in Spanish, plus the closest terms<br/>Ollama is not called"]
-    G -- yes --> L["Ollama qwen2.5:0.5b rephrases the entry<br/>temperature 0.1, 120 tokens"]
+    G -- no --> R["Refusal in Spanish, plus the closest terms<br/>no model is called"]
+    G -- yes --> W{"LOL_REWRITE=1?<br/>(experimental, off by default)"}
+    W -- no, default --> A2["KB text, verbatim"]
+    W -- yes --> L["Ollama qwen2.5:0.5b rewords the entry<br/>temperature 0.1, 120 tokens"]
     L --> D{"Drift check"}
-    D -- passes --> A1[Rewritten answer]
-    D -- fails or Ollama down --> A2[KB text, verbatim]
+    D -- passes --> A1[Reworded answer]
+    D -- fails or Ollama down --> A2
     A1 --> O["Reply + source entry id and score"]
     A2 --> O
 ```
@@ -33,13 +35,18 @@ flowchart TD
 2. **Index.** `uv run python -m backend.ingest` normalises the text, rejects duplicate ids and questions, reports near-duplicate entries (passage cosine of at least 0.85; reported, never deleted), embeds every entry with `paraphrase-multilingual-MiniLM-L12-v2` and writes `data/index/` (embeddings plus a manifest with model, entry count and content hash). The API loads it at startup and rebuilds it if the hash does not match the data; set `LOL_INDEX_STRICT=1` to fail with the command to run instead. The index is derived (about 770 KB, tied to the model version), so it is git-ignored.
 3. **Retrieve** (`backend/rag.py`). v1 embedded only the question text, so short "¿Qué es un campeón X?" questions matched on shape. Now each entry is embedded as `terms, aliases: answer`, and the query is also compared with every term and alias on its own. A lexical score (exact token, shared stem, fuzzy match, via the standard library) on those terms is added, a hubness correction lowers entries that sit close to many unrelated texts, and a capitalised name that appears nowhere in the glossary (for example a champion name) lowers the score.
 4. **Gate.** Below 0.70 the chatbot answers with a fixed refusal and never calls the model. v1 only dropped the context and still let the 0.5B model answer, which is how it explained a tortilla recipe.
-5. **Rephrase and check** (`backend/grounding.py`). Above the gate the model gets only the entry text and a strict prompt. Its output is kept only if it adds no numbers or names, keeps at least 80% of its content words from the entry, still mentions every glossary concept the entry mentions (so a "junglero" cannot become an "enemigo"), does not use a content word more often than the entry does, is not too long and is in Spanish; otherwise the reply is the entry as written. The reply says which of the two happened.
+5. **Answer.** By default the reply is the entry's answer exactly as stored (`mode=verbatim`, `reason=rewrite_disabled`), and the UI says so. This is deliberate, see below.
+6. **Optional rewrite** (`LOL_REWRITE=1`, experimental; `backend/grounding.py`). Above the gate the model gets only the entry text and a strict prompt. Its output is kept only if it adds no numbers or names, keeps at least 80% of its content words from the entry, still mentions every glossary concept the entry mentions (so a "junglero" cannot become an "enemigo"), does not use a content word more often than the entry does, is not too long and is in Spanish; otherwise the reply is the entry as written. The reply says which of the two happened.
+
+### Why the rewrite is off by default
+
+The model is `qwen2.5:0.5b`. End-to-end runs over 44 answered questions (see [`eval/results.md`](eval/results.md)) kept only 7 to 9 reworded answers per run after the drift check, and reading every kept answer by hand found meaning changes that the check does not catch: in the last run 2 of 9 (the Flash question answered from the Summoner entry as "necesitas un summoner y un campeón", and an uncovered question turned into "Main es el campeón más jugado en la historia"), and a different pair in earlier runs. For a glossary the stored text is the reliable answer, so that is the default; the rewrite stays available for experiments and is labelled experimental in the UI.
 
 ### API
 
-- `GET /health` returns `{ ok, model, llm, entries, gate }` (`llm` is whether Ollama answers).
+- `GET /health` returns `{ ok, rewrite, model, llm, entries, gate }`. `rewrite` says whether the experimental rewrite is on; `llm` is whether Ollama answers when it is on, otherwise `null` (it is not checked).
 - `GET /kb` returns `{ count, entries }`.
-- `POST /chat` takes `{ message, history }` and returns `reply`, `mode` (`rewrite`, `verbatim` or `refusal`), `reason`, `source_id`, `source_term`, `matched_question`, `matched_answer`, `score`, `gate`, `below_threshold`, `used_context` and `suggestions`. `history` is only used to resolve short follow-ups ("¿y un ejemplo?"); the model never sees it.
+- `POST /chat` takes `{ message, history }` and returns `reply`, `mode` (`verbatim`, `refusal`, or `rewrite` only with `LOL_REWRITE=1`), `reason` (`rewrite_disabled` by default), `source_id`, `source_term`, `matched_question`, `matched_answer`, `score`, `gate`, `below_threshold`, `used_context` and `suggestions`. `history` is only used to resolve short follow-ups ("¿y un ejemplo?"); the model never sees it.
 
 ## Evaluation
 
@@ -59,9 +66,9 @@ Retriever and gate only (gate 0.70; v1 used 0.45 and still called the LLM):
 | held-out, v1 → v2 | 9/15 → 14/15 | 4/8 → 4/8 | 6/7 → 7/7 |
 | fresh, v1 → v2 | 6/10 → 7/10 | 2/6 → 4/6 | 3/6 → 6/6 |
 
-Read these with care. The gate and design choices were made on dev, so dev overstates v2. Held-out was not tuned on directly, but I saw its aggregates, and after the first full run I removed ten over-generic aliases after reading failing rows, which moved it from 13/15 and 6/7 to 14/15 and 7/7; fresh is the cleanest number and has 22 questions. With samples this small a single question moves a percentage by 3 to 10 points. Also: uncovered League questions are not solved (held-out 4/8), because they share vocabulary with real entries, and some refused ones score close to the gate (dev: 0.681 and 0.689 against 0.70). [`eval/results.md`](eval/results.md) has the full before/after tables for every set, MRR, recall@3, gate precision, a gate sweep, end-to-end `/chat` results with the real model (few reworded answers survive the drift check: 7 of 44), every per-question row, and these caveats in detail.
+Read these with care. The gate and design choices were made on dev, so dev overstates v2. Held-out was not tuned on directly, but I saw its aggregates, and after the first full run I removed ten over-generic aliases after reading failing rows, which moved it from 13/15 and 6/7 to 14/15 and 7/7; fresh is the cleanest number and has 22 questions. With samples this small a single question moves a percentage by 3 to 10 points. Also: uncovered League questions are not solved (held-out 4/8), because they share vocabulary with real entries, and some refused ones score close to the gate (dev: 0.681 and 0.689 against 0.70). [`eval/results.md`](eval/results.md) has the full before/after tables for every set, MRR, recall@3, gate precision, a gate sweep, end-to-end `/chat` results for the experimental rewrite with the real model (few reworded answers survive the drift check, 9 of 44 in the last run, and 2 of those 9 changed meaning), every per-question row, and these caveats in detail.
 
-Reproduce (needs the embedding model; add `--e2e` to go through `/chat` with the model stubbed out, `--llm` to call Ollama, `--write` to rewrite `eval/results.md`, `--json out.json` for a per-question report):
+Reproduce (needs the embedding model; add `--e2e` to go through `/chat` in the default mode (glossary text, no model), `--llm` to turn on the experimental rewrite with Ollama, `--write` to rewrite `eval/results.md`, `--json out.json` for a per-question report):
 
 ```sh
 uv run python eval/run_eval.py
@@ -69,28 +76,34 @@ uv run python eval/run_eval.py
 
 ## Run it
 
-Requirements: [`uv`](https://docs.astral.sh/uv/), Node 22.12 or later, [Ollama](https://ollama.com).
+Requirements: [`uv`](https://docs.astral.sh/uv/) and Node 22.12 or later. [Ollama](https://ollama.com) is only needed for the experimental rewrite.
 
 ```sh
-ollama pull qwen2.5:0.5b          # then `ollama serve` unless Ollama already runs
 uv sync                           # backend dependencies, including the embedding model runtime
 uv run python -m backend.ingest   # optional: build data/index now (otherwise built on first start)
 uv run python main.py             # backend on http://127.0.0.1:8000
 cd frontend && npm install && npm run dev    # frontend on http://127.0.0.1:4321
 ```
 
-Without Ollama the chatbot still works: answers are the glossary text as written.
+Ollama is not needed by default: answers are the glossary text as stored. To try the experimental rewrite:
 
-Environment variables: `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA_MODEL` (`qwen2.5:0.5b`), `CORS_ORIGINS` (comma-separated, defaults to `127.0.0.1` and `localhost` on ports 4321 and 4410), `LOL_INDEX_STRICT`, and `PUBLIC_BACKEND_URL` for the frontend (`http://127.0.0.1:8000`). The original notebook needs `uv sync --group notebook`.
+```sh
+ollama pull qwen2.5:0.5b          # then `ollama serve` unless Ollama already runs
+LOL_REWRITE=1 uv run python main.py
+```
+
+The header status then reads "rewrite on (experimental)" and answers carry a note when they were reworded or when the check rejected the rewrite.
+
+Environment variables: `LOL_REWRITE` (`1` turns on the experimental rewrite; default off), `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA_MODEL` (`qwen2.5:0.5b`), `CORS_ORIGINS` (comma-separated, defaults to `127.0.0.1` and `localhost` on ports 4321 and 4410), `LOL_INDEX_STRICT`, and `PUBLIC_BACKEND_URL` for the frontend (`http://127.0.0.1:8000`). The original notebook needs `uv sync --group notebook`.
 
 ## Tests
 
 ```sh
-uv run pytest                     # 58 tests, no embedding model and no Ollama needed
+uv run pytest                     # 62 tests, no embedding model and no Ollama needed
 cd frontend && npm run build
 ```
 
-They cover schema validation, near-duplicate reporting, index save/load and hash-mismatch rebuild, alias matching, the gate (the mocked Ollama is never called below it), the drift fallback and the API response shape. `.github/workflows/ci.yml` runs them and the frontend build on every push and pull request.
+They cover schema validation, near-duplicate reporting, index save/load and hash-mismatch rebuild, alias matching, the gate and the default mode (the mocked Ollama is never called below the gate, nor at all unless `LOL_REWRITE=1`), the drift fallback and the API response shape. `.github/workflows/ci.yml` runs them and the frontend build on every push and pull request.
 
 ```
 backend/            app, retrieval, grounding, ingestion, schema/loader, text helpers
@@ -106,7 +119,7 @@ lol_chatbot.ipynb   original notebook (unchanged)
 
 - **Single nearest entry.** One entry is retrieved per question; there is no multi-entry context and no re-ranking model.
 - **Similarity is not correctness.** A question about something the glossary only touches ("habilidad E de Ezreal", "Teamfight Tactics") can retrieve the closest generic entry and pass the gate. The source card shows what was matched, which is the mitigation, not a fix.
-- **The drift check is a filter.** It catches invented numbers and names, off-topic text, a dropped glossary concept and a word used more often than in the source (the "junglero" becomes a second "enemigo" case). A rewrite that reuses the entry's words can still be wrong: by hand, 2 of the 7 reworded answers kept in the last run changed meaning. Most replies are therefore the glossary text verbatim.
+- **The drift check is a filter.** It catches invented numbers and names, off-topic text, a dropped glossary concept and a word used more often than in the source (the "junglero" becomes a second "enemigo" case). A rewrite that reuses the entry's words can still be wrong: by hand, 2 of the 9 reworded answers kept in the last run changed meaning. That is why the rewrite is opt-in.
 - **Aliases are hand-written** and cover the whole glossary; a generic alias can cause false matches (that is how ten were removed).
 - **Gate near the boundary.** Several refused uncovered questions score within 0.05 of 0.70.
 - **Follow-ups.** Conversation history only helps short follow-ups reach the right entry; the model does not see it.
