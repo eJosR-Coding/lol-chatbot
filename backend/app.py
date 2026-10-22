@@ -1,5 +1,6 @@
-"""FastAPI app: hybrid retrieval over the glossary, a retrieval gate, and an LLM
-rewrite that is kept only when it stays faithful to the knowledge-base answer."""
+"""FastAPI app: hybrid retrieval over the glossary, a retrieval gate, and the knowledge-base
+answer as stored. An optional, experimental LLM rewrite (LOL_REWRITE=1) is kept only when it
+stays faithful to the answer."""
 from __future__ import annotations
 
 import os
@@ -20,6 +21,9 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:0.5b")
 CORS_ORIGINS = os.environ.get(
     "CORS_ORIGINS", "http://127.0.0.1:4410,http://localhost:4410,http://127.0.0.1:4321,http://localhost:4321"
 ).split(",")
+# Experimental: let a local LLM reword the glossary text. Off by default, the chatbot then
+# answers with the glossary text as stored and never calls Ollama.
+REWRITE_ENABLED = os.environ.get("LOL_REWRITE") == "1"
 # Fail at startup (instead of rebuilding) when the index is missing or stale.
 STRICT_INDEX = os.environ.get("LOL_INDEX_STRICT") == "1"
 
@@ -72,17 +76,24 @@ def best_retrieval(retriever: LolRetriever, message: str, history: list[Message]
 
 
 def create_app(
-    retriever: LolRetriever | None = None, http: httpx.AsyncClient | None = None
+    retriever: LolRetriever | None = None,
+    http: httpx.AsyncClient | None = None,
+    rewrite: bool | None = None,
 ) -> FastAPI:
-    """Build the app. Tests inject a fake retriever and HTTP client."""
+    """Build the app. Tests inject a fake retriever and HTTP client; ``rewrite`` overrides
+    the LOL_REWRITE setting."""
+    rewrite_on = REWRITE_ENABLED if rewrite is None else rewrite
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.retriever = retriever or load_retriever(strict=STRICT_INDEX)
         app.state.terms = grounding.domain_terms(app.state.retriever.entries)
-        app.state.http = http or httpx.AsyncClient(base_url=OLLAMA_HOST, timeout=60.0)
+        app.state.rewrite = rewrite_on
+        app.state.http = None
+        if rewrite_on:
+            app.state.http = http or httpx.AsyncClient(base_url=OLLAMA_HOST, timeout=60.0)
         yield
-        if http is None:
+        if rewrite_on and http is None:
             await app.state.http.aclose()
 
     app = FastAPI(title="LoL RAG Chatbot", lifespan=lifespan)
@@ -92,13 +103,16 @@ def create_app(
 
     @app.get("/health")
     async def health(request: Request) -> dict:
-        try:
-            r = await request.app.state.http.get("/api/tags", timeout=1.5)
-            llm = r.status_code == 200
-        except httpx.HTTPError:
-            llm = False
+        llm: bool | None = None  # only checked when rewriting is on
+        if request.app.state.rewrite:
+            try:
+                r = await request.app.state.http.get("/api/tags", timeout=1.5)
+                llm = r.status_code == 200
+            except httpx.HTTPError:
+                llm = False
         return {
             "ok": True,
+            "rewrite": request.app.state.rewrite,
             "model": OLLAMA_MODEL,
             "llm": llm,
             "entries": len(request.app.state.retriever.entries),
@@ -145,6 +159,8 @@ def create_app(
             )
 
         verbatim = dict(source_id=entry.id, source_term=entry.term, used_context=True, **common)
+        if not request.app.state.rewrite:  # default: the glossary text as stored, no model involved
+            return ChatResponse(reply=entry.answer, mode="verbatim", reason="rewrite_disabled", **verbatim)
         payload = {
             "model": OLLAMA_MODEL,
             "stream": False,

@@ -9,8 +9,8 @@ Three question sets, three groups each (in_domain / uncovered / out_of_domain):
 
 Metrics (retriever alone, at the gate threshold): top-1 accuracy, recall@3, MRR,
 correct rejection per group, gate precision. With --e2e every question also goes
-through the real /chat endpoint (gate, drift check); the LLM is only called with --llm,
-otherwise it is replaced by an unavailable stub so the result is deterministic.
+through the real /chat endpoint. The default build answers with the glossary text and never
+calls a model; --llm turns on the experimental rewrite (LOL_REWRITE=1 equivalent) with Ollama.
 
 Usage (from the repository root):
     uv run python eval/run_eval.py                  # print the report
@@ -131,7 +131,7 @@ def run_e2e(retriever: LolRetriever, paths: dict[str, Path], use_llm: bool) -> d
             base_url="http://llm.invalid", transport=httpx.MockTransport(lambda _r: httpx.Response(503))
         )
     out: dict[str, list[dict]] = {}
-    with TestClient(create_app(retriever=retriever, http=http)) as client:
+    with TestClient(create_app(retriever=retriever, http=http, rewrite=use_llm)) as client:
         for name, path in paths.items():
             data = json.loads(path.read_text(encoding="utf-8"))
             by_question = {e.question: e.id for e in retriever.entries}
@@ -158,7 +158,7 @@ def e2e_summary(rows: list[dict]) -> dict:
         "ok": ok, "n": n,
         "rewrite": sum(r["mode"] == "rewrite" for r in answered),
         "drift": sum(r["reason"].startswith("drift") for r in answered),
-        "no_llm": sum(r["reason"] == "llm_unavailable" for r in answered),
+        "no_llm": sum(r["reason"] in ("llm_unavailable", "rewrite_disabled") for r in answered),
         "unchanged": sum(r["reason"] == "unchanged" for r in answered),
         "answered": len(answered),
     }
@@ -237,14 +237,18 @@ def render(retriever: LolRetriever, data: dict[str, list[dict]], e2e: dict | Non
             )
         out.append("")
     if e2e:
-        llm = "Ollama `qwen2.5:0.5b`" if use_llm else "LLM stubbed as unavailable (deterministic: answers are the KB text)"
+        llm = (
+            "the experimental rewrite with Ollama `qwen2.5:0.5b` (`LOL_REWRITE=1`, not the default)"
+            if use_llm
+            else "no model (rewrite off, the default: every answered question returns the KB text)"
+        )
         out += [
             "## End to end through `/chat` (v2)",
             "",
             f"Each question goes through the real endpoint: retrieval, gate, then {llm}. "
             "Correct = in-KB questions answered from an expected entry; other groups refused.",
             "",
-            "| Set | In KB correct | Uncovered refused | Out of domain refused | Answered: reworded rewrite kept | KB text: rewrite rejected or model off | KB text: model copied it unchanged |",
+            "| Set | In KB correct | Uncovered refused | Out of domain refused | Answered: reworded rewrite kept | KB text: rewrite rejected, off or model down | KB text: model copied it unchanged |",
             "|---|---|---|---|---|---|---|",
         ]
         for name, rows in e2e.items():

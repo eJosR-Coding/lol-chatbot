@@ -2,6 +2,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+import backend.app as backend_app
 from backend.app import create_app
 from tests.conftest import ENTRIES, LLMStub
 
@@ -12,8 +13,52 @@ CHAT_KEYS = {
 }
 
 
-def client_for(retriever, llm: LLMStub):
-    return TestClient(create_app(retriever=retriever, http=llm.client()))
+# --- default: the glossary text as stored, no model ----------------------------------------
+
+def test_by_default_the_llm_is_never_called_and_the_kb_text_is_returned(retriever, monkeypatch):
+    monkeypatch.setattr(backend_app, "REWRITE_ENABLED", False)
+    llm = LLMStub(reply=GOOD_REWRITE)
+    with TestClient(create_app(retriever=retriever, http=llm.client())) as c:
+        body = chat(c, "¿Qué es un tank?").json()
+        health = c.get("/health").json()
+    assert llm.chat_calls == 0
+    assert body["mode"] == "verbatim" and body["reason"] == "rewrite_disabled"
+    assert body["reply"] == ENTRIES[0].answer and body["source_id"] == 1
+    assert set(body) == CHAT_KEYS
+    assert health["rewrite"] is False and health["llm"] is None
+
+
+def test_refusal_is_unchanged_with_rewrite_off(retriever):
+    llm = LLMStub()
+    with client_for(retriever, llm, rewrite=False) as c:
+        body = chat(c, "¿Cuál es la capital de Francia?").json()
+    assert llm.chat_calls == 0 and body["mode"] == "refusal" and body["reason"] == "below_gate"
+
+
+def test_rewrite_is_enabled_by_the_environment_setting(retriever, monkeypatch):
+    monkeypatch.setattr(backend_app, "REWRITE_ENABLED", True)
+    llm = LLMStub(reply=GOOD_REWRITE)
+    with TestClient(create_app(retriever=retriever, http=llm.client())) as c:
+        body = chat(c, "¿Qué es un tank?").json()
+        health = c.get("/health").json()
+    assert llm.chat_calls == 1 and body["mode"] == "rewrite"
+    assert health["rewrite"] is True and health["llm"] is True
+
+
+def test_rewrite_setting_is_off_unless_the_variable_is_1(monkeypatch):
+    import importlib
+
+    monkeypatch.delenv("LOL_REWRITE", raising=False)
+    assert importlib.reload(backend_app).REWRITE_ENABLED is False
+    monkeypatch.setenv("LOL_REWRITE", "1")
+    assert importlib.reload(backend_app).REWRITE_ENABLED is True
+    monkeypatch.delenv("LOL_REWRITE")
+    importlib.reload(backend_app)
+
+
+def client_for(retriever, llm: LLMStub, rewrite: bool = True):
+    """Rewriting is opt-in; most tests here cover the opt-in path, so it is on by default."""
+    return TestClient(create_app(retriever=retriever, http=llm.client(), rewrite=rewrite))
 
 
 def chat(client, message, history=None):
@@ -95,7 +140,7 @@ def test_health_and_kb_endpoints(retriever):
         health = c.get("/health").json()
         kb = c.get("/kb").json()
     assert health["ok"] is True and health["llm"] is True and health["entries"] == 6
-    assert set(health) == {"ok", "model", "llm", "entries", "gate"}
+    assert set(health) == {"ok", "rewrite", "model", "llm", "entries", "gate"}
     assert kb["count"] == 6 and kb["entries"][0]["term"] == "un tank"
     assert {"id", "term", "question", "answer", "aliases", "category", "source"} <= set(kb["entries"][0])
 
@@ -104,7 +149,7 @@ def test_health_reports_unavailable_llm(retriever):
     down = httpx.AsyncClient(
         base_url="http://llm.test", transport=httpx.MockTransport(lambda _r: httpx.Response(503))
     )
-    with TestClient(create_app(retriever=retriever, http=down)) as c:
+    with TestClient(create_app(retriever=retriever, http=down, rewrite=True)) as c:
         assert c.get("/health").json()["llm"] is False
 
 
