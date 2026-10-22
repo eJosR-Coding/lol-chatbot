@@ -1,43 +1,23 @@
-# Astro Starter Kit: Minimal
+# Frontend
+
+A single Astro page (static output, no framework runtime) that talks to the FastAPI backend.
+
+```
+src/layouts/Base.astro          document shell, Google Fonts (Marcellus, IBM Plex Sans)
+src/components/                 Header, Chat (empty state, composer), KnowledgeBase
+src/scripts/app.ts              tabs, backend status, chat, source cards, knowledge base view
+src/styles/global.css           palette tokens and all component styles (plain CSS, no build plugin)
+```
 
 ```sh
-npm create astro@latest -- --template minimal
+npm install
+npm run dev -- --port 4410     # or just `npm run dev` (Astro default is 4321)
+npm run build                  # static site in dist/
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+The backend URL defaults to `http://127.0.0.1:8000`; override it with `PUBLIC_BACKEND_URL` at build/dev time.
+The backend allows the origins in its `CORS_ORIGINS` variable (default: `127.0.0.1` and `localhost` on ports 4321 and 4410).
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Design notes: the palette follows the League client (navy, gold, hextech teal) as CSS custom properties at the top of
+`global.css`. Panels use `clip-path` chamfers instead of any Riot artwork. Animations are disabled under
+`prefers-reduced-motion`. Chat history (last 12 messages) lives in `sessionStorage`.

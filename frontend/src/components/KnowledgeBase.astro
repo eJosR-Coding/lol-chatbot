@@ -1,0 +1,22 @@
+---
+---
+
+<section class="view" id="view-kb" role="tabpanel" aria-labelledby="tab-kb" hidden>
+  <div class="kb-head">
+    <h2 class="section-title">Knowledge base</h2>
+    <p class="kb-head__lead">
+      Every entry the chatbot can answer from. Entry numbers match the <em>answer source</em> shown under each reply.
+    </p>
+    <div class="kb-tools">
+      <label class="sr-only" for="kb-search">Search the knowledge base</label>
+      <input class="field" id="kb-search" type="search" placeholder="Search terms, aliases or answers…" />
+      <label class="sr-only" for="kb-category">Category</label>
+      <select class="field" id="kb-category">
+        <option value="">All categories</option>
+      </select>
+    </div>
+    <p class="kb-count" id="kb-count" role="status"></p>
+  </div>
+  <ul class="kb-list" id="kb-list"></ul>
+  <p class="kb-empty" id="kb-empty" hidden>No entry matches that search.</p>
+</section>

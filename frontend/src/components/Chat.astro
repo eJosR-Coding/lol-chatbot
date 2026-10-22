@@ -1,0 +1,65 @@
+---
+const examples = [
+  { label: "¿Qué es un gank?", note: "" },
+  { label: "¿Qué significa tener sustain?", note: "" },
+  { label: "What does ADC mean?", note: "" },
+  { label: "¿Cuál es la habilidad pasiva de Ahri?", note: "outside the glossary" },
+];
+---
+
+<section class="view" id="view-chat" role="tabpanel" aria-labelledby="tab-chat">
+  <div class="empty" id="empty">
+    <div class="ornament" aria-hidden="true"><span></span><i></i><span></span></div>
+    <h1 class="empty__title">Ask about League of Legends</h1>
+    <p class="empty__lead">
+      Slang, abbreviations and mechanics from a glossary of <strong id="entry-count">239</strong> terms.
+      Answers are in Spanish because the glossary is; you can ask in English or Spanish.
+    </p>
+    <ul class="chips" aria-label="Example questions">
+      {
+        examples.map((e) => (
+          <li>
+            <button class="chip chamfer" type="button" data-example={e.label}>
+              {e.label}
+              {e.note && <span class="chip__note">{e.note}</span>}
+            </button>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="empty__hint">The last example is not in the glossary: try it to see how the chatbot refuses.</p>
+  </div>
+
+  <div class="offline" id="offline" hidden>
+    <h2 class="offline__title">Backend not reachable</h2>
+    <p>
+      The page could not reach <code id="offline-url"></code>. From the repository root, start it with:
+    </p>
+    <pre class="code"><code>uv run python main.py</code></pre>
+    <p class="offline__small">
+      The first start downloads the embedding model. For rewritten answers also run <code>ollama serve</code>;
+      without Ollama, answers are shown as stored in the glossary.
+    </p>
+    <button class="btn btn--ghost chamfer" type="button" id="retry">Try again</button>
+  </div>
+
+  <ol class="log" id="log" aria-live="polite" aria-label="Conversation"></ol>
+</section>
+
+<form class="composer" id="composer" autocomplete="off">
+  <div class="composer__inner">
+    <label class="sr-only" for="question">Your question</label>
+    <input
+      class="composer__input"
+      id="question"
+      name="question"
+      type="text"
+      placeholder="Ask about a League term…"
+      maxlength="300"
+      enterkeyhint="send"
+      required
+    />
+    <button class="btn btn--primary chamfer" type="submit" id="send">Ask</button>
+    <button class="btn btn--ghost composer__clear" type="button" id="clear" hidden>Clear chat</button>
+  </div>
+</form>
