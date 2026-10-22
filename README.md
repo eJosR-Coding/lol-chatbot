@@ -33,7 +33,7 @@ flowchart TD
 2. **Index.** `uv run python -m backend.ingest` normalises the text, rejects duplicate ids and questions, reports near-duplicate entries (passage cosine of at least 0.85; reported, never deleted), embeds every entry with `paraphrase-multilingual-MiniLM-L12-v2` and writes `data/index/` (embeddings plus a manifest with model, entry count and content hash). The API loads it at startup and rebuilds it if the hash does not match the data; set `LOL_INDEX_STRICT=1` to fail with the command to run instead. The index is derived (about 770 KB, tied to the model version), so it is git-ignored.
 3. **Retrieve** (`backend/rag.py`). v1 embedded only the question text, so short "¿Qué es un campeón X?" questions matched on shape. Now each entry is embedded as `terms, aliases: answer`, and the query is also compared with every term and alias on its own. A lexical score (exact token, shared stem, fuzzy match, via the standard library) on those terms is added, a hubness correction lowers entries that sit close to many unrelated texts, and a capitalised name that appears nowhere in the glossary (for example a champion name) lowers the score.
 4. **Gate.** Below 0.70 the chatbot answers with a fixed refusal and never calls the model. v1 only dropped the context and still let the 0.5B model answer, which is how it explained a tortilla recipe.
-5. **Rephrase and check** (`backend/grounding.py`). Above the gate the model gets only the entry text and a strict prompt. Its output is kept only if it adds no numbers or names, keeps at least 80% of its content words from the entry, is not too long and is in Spanish; otherwise the reply is the entry as written. The reply says which of the two happened.
+5. **Rephrase and check** (`backend/grounding.py`). Above the gate the model gets only the entry text and a strict prompt. Its output is kept only if it adds no numbers or names, keeps at least 80% of its content words from the entry, still mentions every glossary concept the entry mentions (so a "junglero" cannot become an "enemigo"), does not use a content word more often than the entry does, is not too long and is in Spanish; otherwise the reply is the entry as written. The reply says which of the two happened.
 
 ### API
 
@@ -59,7 +59,7 @@ Retriever and gate only (gate 0.70; v1 used 0.45 and still called the LLM):
 | held-out, v1 → v2 | 9/15 → 14/15 | 4/8 → 4/8 | 6/7 → 7/7 |
 | fresh, v1 → v2 | 6/10 → 7/10 | 2/6 → 4/6 | 3/6 → 6/6 |
 
-Read these with care. The gate and design choices were made on dev, so dev overstates v2. Held-out was not tuned on directly, but I saw its aggregates, and after the first full run I removed ten over-generic aliases after reading failing rows, which moved it from 13/15 and 6/7 to 14/15 and 7/7; fresh is the cleanest number and has 22 questions. With samples this small a single question moves a percentage by 3 to 10 points. Also: uncovered League questions are not solved (held-out 4/8), because they share vocabulary with real entries, and some refused ones score close to the gate (dev: 0.681 and 0.689 against 0.70). [`eval/results.md`](eval/results.md) has the full before/after tables for every set, MRR, recall@3, gate precision, a gate sweep, end-to-end `/chat` results with the real model (about half of the rewrites survive the drift check), every per-question row, and these caveats in detail.
+Read these with care. The gate and design choices were made on dev, so dev overstates v2. Held-out was not tuned on directly, but I saw its aggregates, and after the first full run I removed ten over-generic aliases after reading failing rows, which moved it from 13/15 and 6/7 to 14/15 and 7/7; fresh is the cleanest number and has 22 questions. With samples this small a single question moves a percentage by 3 to 10 points. Also: uncovered League questions are not solved (held-out 4/8), because they share vocabulary with real entries, and some refused ones score close to the gate (dev: 0.681 and 0.689 against 0.70). [`eval/results.md`](eval/results.md) has the full before/after tables for every set, MRR, recall@3, gate precision, a gate sweep, end-to-end `/chat` results with the real model (few reworded answers survive the drift check: 7 of 44), every per-question row, and these caveats in detail.
 
 Reproduce (needs the embedding model; add `--e2e` to go through `/chat` with the model stubbed out, `--llm` to call Ollama, `--write` to rewrite `eval/results.md`, `--json out.json` for a per-question report):
 
@@ -86,7 +86,7 @@ Environment variables: `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA
 ## Tests
 
 ```sh
-uv run pytest                     # 49 tests, no embedding model and no Ollama needed
+uv run pytest                     # 58 tests, no embedding model and no Ollama needed
 cd frontend && npm run build
 ```
 
@@ -106,7 +106,7 @@ lol_chatbot.ipynb   original notebook (unchanged)
 
 - **Single nearest entry.** One entry is retrieved per question; there is no multi-entry context and no re-ranking model.
 - **Similarity is not correctness.** A question about something the glossary only touches ("habilidad E de Ezreal", "Teamfight Tactics") can retrieve the closest generic entry and pass the gate. The source card shows what was matched, which is the mitigation, not a fix.
-- **The drift check is a filter.** It catches invented numbers and names and off-topic text; a rewrite that reuses the entry's words can still be subtly wrong. About half of the rewrites are discarded, so many replies are the glossary text verbatim.
+- **The drift check is a filter.** It catches invented numbers and names, off-topic text, a dropped glossary concept and a word used more often than in the source (the "junglero" becomes a second "enemigo" case). A rewrite that reuses the entry's words can still be wrong: by hand, 2 of the 7 reworded answers kept in the last run changed meaning. Most replies are therefore the glossary text verbatim.
 - **Aliases are hand-written** and cover the whole glossary; a generic alias can cause false matches (that is how ten were removed).
 - **Gate near the boundary.** Several refused uncovered questions score within 0.05 of 0.70.
 - **Follow-ups.** Conversation history only helps short follow-ups reach the right entry; the model does not see it.

@@ -159,6 +159,7 @@ def e2e_summary(rows: list[dict]) -> dict:
         "rewrite": sum(r["mode"] == "rewrite" for r in answered),
         "drift": sum(r["reason"].startswith("drift") for r in answered),
         "no_llm": sum(r["reason"] == "llm_unavailable" for r in answered),
+        "unchanged": sum(r["reason"] == "unchanged" for r in answered),
         "answered": len(answered),
     }
 
@@ -243,8 +244,8 @@ def render(retriever: LolRetriever, data: dict[str, list[dict]], e2e: dict | Non
             f"Each question goes through the real endpoint: retrieval, gate, then {llm}. "
             "Correct = in-KB questions answered from an expected entry; other groups refused.",
             "",
-            "| Set | In KB correct | Uncovered refused | Out of domain refused | Answered: LLM rewrite kept | Answered: fell back to KB text |",
-            "|---|---|---|---|---|---|",
+            "| Set | In KB correct | Uncovered refused | Out of domain refused | Answered: reworded rewrite kept | KB text: rewrite rejected or model off | KB text: model copied it unchanged |",
+            "|---|---|---|---|---|---|---|",
         ]
         for name, rows in e2e.items():
             s = e2e_summary(rows)
@@ -252,7 +253,7 @@ def render(retriever: LolRetriever, data: dict[str, list[dict]], e2e: dict | Non
             out.append(
                 f"| {name} | {pct(s['ok']['in_domain'], s['n']['in_domain'])} | "
                 f"{pct(s['ok']['uncovered'], s['n']['uncovered'])} | {pct(s['ok']['out_of_domain'], s['n']['out_of_domain'])} | "
-                f"{s['rewrite']}/{s['answered']} | {fell}/{s['answered']} |"
+                f"{s['rewrite']}/{s['answered']} | {fell}/{s['answered']} | {s['unchanged']}/{s['answered']} |"
             )
         out.append("")
         if use_llm:

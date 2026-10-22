@@ -82,7 +82,7 @@ The gate is the only knob; this sweep shows what each value would have done. The
 | 0.35 | 8/10 (80%) | 0/6 (0%) | 1/6 (17%) | 8/21 (38%) |
 | 0.40 | 8/10 (80%) | 0/6 (0%) | 2/6 (33%) | 8/20 (40%) |
 | 0.45 | 8/10 (80%) | 0/6 (0%) | 2/6 (33%) | 8/20 (40%) |
-| 0.50 | 8/10 (80%) | 2/6 (33%) | 3/6 (50%) | 8/17 (47%) |
+| 0.50 | 8/10 (80%) | 1/6 (17%) | 3/6 (50%) | 8/18 (44%) |
 | 0.55 | 8/10 (80%) | 3/6 (50%) | 5/6 (83%) | 8/14 (57%) |
 | 0.60 | 8/10 (80%) | 3/6 (50%) | 5/6 (83%) | 8/13 (62%) |
 | 0.65 | 8/10 (80%) | 4/6 (67%) | 6/6 (100%) | 8/11 (73%) |
@@ -92,33 +92,47 @@ The gate is the only knob; this sweep shows what each value would have done. The
 
 Each question goes through the real endpoint: retrieval, gate, then Ollama `qwen2.5:0.5b`. Correct = in-KB questions answered from an expected entry; other groups refused.
 
-| Set | In KB correct | Uncovered refused | Out of domain refused | Answered: LLM rewrite kept | Answered: fell back to KB text |
-|---|---|---|---|---|---|
-| dev | 12/15 (80%) | 7/8 (88%) | 7/7 (100%) | 7/15 | 8/15 |
-| heldout | 14/15 (93%) | 4/8 (50%) | 7/7 (100%) | 10/19 | 9/19 |
-| fresh | 7/10 (70%) | 4/6 (67%) | 6/6 (100%) | 8/10 | 2/10 |
+| Set | In KB correct | Uncovered refused | Out of domain refused | Answered: reworded rewrite kept | KB text: rewrite rejected or model off | KB text: model copied it unchanged |
+|---|---|---|---|---|---|---|
+| dev | 12/15 (80%) | 7/8 (88%) | 7/7 (100%) | 1/15 | 13/15 | 1/15 |
+| heldout | 14/15 (93%) | 4/8 (50%) | 7/7 (100%) | 4/19 | 12/19 | 3/19 |
+| fresh | 7/10 (70%) | 4/6 (67%) | 6/6 (100%) | 2/10 | 8/10 | 0/10 |
 
 Fallback reasons (answered questions whose rewrite was dropped):
 
-- dev: ¿Para qué sirve el hechizo de invocador que te teletransporta unos metros? → drift: low overlap with the source (0.77)
-- dev: ¿Qué es el daño explosivo en un solo combo? → drift: low overlap with the source (0.71)
-- dev: ¿Qué significa que un campeón está rotísimo? → drift: low overlap with the source (0.40)
-- dev: ¿Qué es el Barón? → drift: low overlap with the source (0.54)
-- dev: ¿Para qué sirve poner wardeos en el mapa? → drift: low overlap with the source (0.68)
-- dev: ¿Cómo funciona la reducción de enfriamiento? → drift: low overlap with the source (0.33)
+- dev: Un compañero se quedó quieto sin jugar, ¿qué significa AFK? → drift: dropped_term: 'away from keyboard'
+- dev: ¿Para qué sirve el hechizo de invocador que te teletransporta unos metros? → drift: low overlap with the source (0.75)
+- dev: ¿Cómo se llama el mapa principal de 5 contra 5? → drift: dropped_term: 'grieta del invocador'
+- dev: ¿Qué es el daño explosivo en un solo combo? → drift: low overlap with the source (0.67)
+- dev: ¿Qué significa que un campeón está rotísimo? → drift: low overlap with the source (0.62)
+- dev: ¿Qué es el Barón? → drift: low overlap with the source (0.57)
+- dev: ¿Para qué sirve poner wardeos en el mapa? → drift: low overlap with the source (0.25)
+- dev: ¿Cómo funciona la reducción de enfriamiento? → drift: low overlap with the source (0.63)
+- dev: ¿Qué es un campeón tanque? → drift: dropped_term: 'mr'
 - dev: ¿Qué es el Nexus? → drift: low overlap with the source (0.62)
-- dev: ¿Cómo se juega Yasuo contra Zed en el carril medio? → drift: low overlap with the source (0.20)
+- dev: ¿Qué es un aturdimiento? → drift: dropped_term: 'cc duro'
+- dev: ¿Qué significa robar una kill? → drift: low overlap with the source (0.73)
+- dev: ¿Cómo se juega Yasuo contra Zed en el carril medio? → drift: low overlap with the source (0.14)
 - heldout: ¿Qué hace el hechizo de invocador Ignite? → drift: new names: ['Facebook']
-- heldout: ¿Cómo funciona el robo de vida? → drift: low overlap with the source (0.73)
-- heldout: ¿Qué es el daño en área? → drift: low overlap with the source (0.67)
-- heldout: ¿Qué hace el soporte del equipo? → drift: new names: ['Cancion', 'Cero']
-- heldout: ¿Qué significa que alguien esté trolleando? → drift: low overlap with the source (0.67)
-- heldout: What is a teamfight? → drift: low overlap with the source (0.64)
+- heldout: ¿Cómo funciona el robo de vida? → drift: duplicated_word: 'vida'
+- heldout: ¿Qué significa hacer kite a un enemigo? → drift: low overlap with the source (0.62)
+- heldout: ¿Qué es el daño en área? → drift: low overlap with the source (0.71)
+- heldout: ¿Cómo se llama la resistencia contra el daño mágico? → drift: dropped_term: 'items'
+- heldout: ¿Qué es rendirse en una partida? → drift: duplicated_word: 'partida'
+- heldout: ¿Qué hace el soporte del equipo? → drift: new names: ['Comando', 'Cero', 'Adversario', 'Controlador']
+- heldout: ¿Qué significa que alguien esté trolleando? → drift: low overlap with the source (0.43)
+- heldout: What is a teamfight? → drift: low overlap with the source (0.60)
 - heldout: ¿Cuántos puntos de vida tiene Garen en nivel uno? → drift: new numbers: ['100']
-- heldout: ¿Cuál es la mejor build para Kai'Sa? → drift: low overlap with the source (0.62)
-- heldout: ¿Qué es Teamfight Tactics? → drift: low overlap with the source (0.57)
-- fresh: ¿Cómo vuelvo a la base para comprar objetos? → drift: low overlap with the source (0.67)
+- heldout: ¿Cuál es la mejor build para Kai'Sa? → drift: new names: ['Mega', 'Thrower', 'Sword', 'Sun']
+- heldout: ¿Qué es Teamfight Tactics? → drift: low overlap with the source (0.25)
+- fresh: ¿Qué significa hacer backdoor a un nexo? → drift: dropped_term: 'backdoor'
+- fresh: ¿Cómo vuelvo a la base para comprar objetos? → drift: too long
+- fresh: ¿Cuánto oro por segundo da un item de gold per 10? → drift: low overlap with the source (0.75)
+- fresh: ¿Qué es la niebla de guerra? → drift: low overlap with the source (0.79)
 - fresh: ¿Qué significa tener sustain? → drift: low overlap with the source (0.00)
+- fresh: What is a hypercarry? → drift: dropped_term: 'hypercarry'
+- fresh: ¿Qué hace un inhibidor? → drift: low overlap with the source (0.53)
+- fresh: ¿Qué items lleva Ashe en el parche actual? → drift: new names: ['Equipamiento']
 
 ## Per-question results: dev (gate 0.7)
 
@@ -188,7 +202,7 @@ Fallback reasons (answered questions whose rewrite was dropped):
 | Out of domain | ¿Cuántos jugadores hay en un equipo de fútbol? | teamfight (#212) | 0.633 | refuses | yes |
 | Out of domain | Dame consejos para estudiar para un examen. | PBE (#161) | 0.483 | refuses | yes |
 | Out of domain | ¿Quién escribió Cien años de soledad? | Unique en items (#222) | 0.334 | refuses | yes |
-| Out of domain | What is the best programming language to learn first? | FB o First Blood (#079) | 0.368 | refuses | yes |
+| Out of domain | What is the best programming language to learn first? | FB o First Blood (#079) | 0.369 | refuses | yes |
 
 ## Per-question results: fresh (gate 0.7)
 
@@ -244,8 +258,11 @@ How much was tuned on what (read this before trusting the held-out numbers):
 
 End to end with `qwen2.5:0.5b`:
 
-- The LLM is called only above the gate. Of the answered questions, about half of the rewrites are kept (dev 7/15, held-out 10/19, fresh 8/10 in the table above; a run with the same settings gives slightly different counts because generation is not deterministic at temperature 0.1) and the rest fall back to the KB text because the rewrite added numbers or names, left the source vocabulary (overlap below 0.8), was too long or was not in Spanish.
-- The drift check is a filter, not a proof: it catches invented numbers and names and off-topic text, but a rewrite that reuses source words can still say something subtly wrong (a rephrasing like "robar una kill = el último golpe de un aliado" can slip through). The KB answer shown in the source card is always the ground truth.
+- The LLM is called only above the gate. After the drift-check fix below, reworded rewrites survive rarely: 7 of 44 answered questions (dev 1/15, held-out 4/19, fresh 2/10 in the table above; another 4 were the model copying the entry unchanged, reported as verbatim). Everything else is the KB text as written. A second run differs slightly because generation is not deterministic.
+- The drift check rejects a rewrite that added numbers or names, left the source vocabulary (content-word overlap below 0.8), was too long or not in Spanish, and, since the fix, one that (1) no longer mentions a glossary concept the source uses (for every entry with a term or alias in the source answer, at least one name of that entry must remain, matched by stem), or (2) uses a content word of the source more often than the source does.
+- Why the fix: the showcase answer for entry #93 turned "cuando el junglero (u otro aliado) viene a tu carril a emboscar al enemigo" into "cuando el enemigo (u otro aliado) viene a tu carril para emboscar al enemigo", which changes who gets ambushed. The word "junglero" was not a glossary alias (now it is, an alias of jungler), and the substitution made "enemigo" appear twice, so both new rules catch it; tests use that exact example plus a faithful paraphrase that is kept.
+- A first, literal version required every individual term and alias of the source to survive. It kept 8 of 44 answers (dev 0/15, held-out 7/19, fresh 1/10), mostly verbatim copies, because rewrites legitimately drop alternative names of the same concept ("AFK" for "away from keyboard"). Grouping names by entry (rule 1 above) keeps the protection without that cost.
+- The drift check is still a filter, not a proof. Inspecting every kept, reworded rewrite of the final run by hand (7), two changed meaning and were not caught: "¿Qué hace la habilidad definitiva de un campeón?" gets "La habilidad definitiva de un campeón es 'Tira la ulti'." (the entry says the ult is the R and gives 'Tira la ulti' as an example phrase), and the uncovered question "¿Quién es el campeón más jugado de la historia?" (it passes the gate at 0.707 and matches the "main" entry) gets "El campeón más jugado ... es Yasuo, que se conoce como 'Soy main Yasuo'", turning an example from the entry into an answer. The other five are faithful (the Counter pick sentence is reordered, the blue-buff one adds "lo que es crucial", the rest differ by an article or a dropped headword). In an earlier run the Summoner entry (#203, retrieved for the Flash question) was rewritten as "necesitas un summoner (el jugador) y un campeón", also wrong. The KB answer shown in the source card is always the ground truth.
 - When an uncovered question passes the gate (for example "habilidad E de Ezreal") the chatbot answers with the entry it matched ("habilidad E") and labels it with that source; the answer is a correct glossary entry, not an answer to the question. The source card makes that visible.
 
 Caveats: 30, 30 and 22 questions are small samples, so percentages move by 3 to 10 points per question; the sets were written by the project owner and an assistant, not collected from real users; every question is single-turn (conversation history is not evaluated); the e2e table uses one run of a stochastic model.
