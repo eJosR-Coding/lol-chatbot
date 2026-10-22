@@ -60,3 +60,10 @@ def test_clean_reply_removes_prompt_labels():
 def test_refusal_text_suggests_close_terms_when_there_are_any():
     assert "«un tank»" in grounding.refusal([TANK])
     assert "glosario" in grounding.refusal([])
+
+
+def test_game_names_and_plurals_of_known_words_are_not_inventions():
+    ok, why = check("En League of Legends, un tank es un campeón resistente que absorbe daño en las peleas de equipo.")
+    assert ok, why
+    ok, why = check("Los Tanks son campeones resistentes que absorben daño en las peleas de equipo.")
+    assert ok, why
