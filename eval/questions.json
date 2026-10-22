@@ -1,0 +1,39 @@
+{
+  "description": "Retrieval evaluation set for the LoL RAG chatbot. Groups: in_domain (answer exists in the KB, phrased differently from the KB entry), uncovered (League-related but not in the glossary KB), out_of_domain (unrelated to League). expected_questions are exact KB 'pregunta' strings; the runner resolves them to 1-based entry ids (the '#NNN' shown in the Knowledge Base view).",
+  "in_domain": [
+    {"q": "Un compañero se quedó quieto sin jugar, ¿qué significa AFK?", "expected_questions": ["¿Qué significa AFK?"]},
+    {"q": "¿Para qué sirve el hechizo de invocador que te teletransporta unos metros?", "expected_questions": ["¿Qué es Flash o Destello?"]},
+    {"q": "¿Cómo se llama el mapa principal de 5 contra 5?", "expected_questions": ["¿Qué significa 5's?"]},
+    {"q": "¿Qué es el daño explosivo en un solo combo?", "expected_questions": ["¿Qué es burst o daño explosivo?"]},
+    {"q": "¿Qué significa que un campeón está rotísimo?", "expected_questions": ["¿Qué significa que un campeón está broken?"]},
+    {"q": "¿Qué es el Barón?", "expected_questions": ["¿Qué es Baron Nashor?"]},
+    {"q": "¿Para qué sirve poner wardeos en el mapa?", "expected_questions": ["¿Qué es un ward?", "¿Qué es ward placement?"]},
+    {"q": "¿Cómo funciona la reducción de enfriamiento?", "expected_questions": ["¿Qué es CDR o reducción de enfriamiento?"]},
+    {"q": "Cuando un jugador mata a los cinco enemigos seguidos, ¿cómo se llama?", "expected_questions": ["¿Qué es Penta o Pentakill?"]},
+    {"q": "¿Qué es un campeón tanque?", "expected_questions": ["¿Qué es un tank?"]},
+    {"q": "¿Qué significa que te hicieron un gank?", "expected_questions": ["¿Qué es un gank?"]},
+    {"q": "¿Qué es el Nexus?", "expected_questions": ["¿Qué es el nexo o Nexus?"]},
+    {"q": "¿Qué es un aturdimiento?", "expected_questions": ["¿Qué es Stun?"]},
+    {"q": "¿Qué hace la habilidad definitiva de un campeón?", "expected_questions": ["¿Qué es la ult o ultimate?", "¿Qué es la habilidad R?"]},
+    {"q": "¿Qué significa robar una kill?", "expected_questions": ["¿Qué es KS o kill steal?"]}
+  ],
+  "uncovered": [
+    {"q": "¿Cuál es la habilidad pasiva de Ahri?"},
+    {"q": "¿Cuánto cuesta el Infinity Edge en la tienda?"},
+    {"q": "¿Cuándo salió League of Legends por primera vez?"},
+    {"q": "¿Cuántos campeones hay actualmente en el juego?"},
+    {"q": "¿Qué runas debería llevar Jinx?"},
+    {"q": "¿Quién ganó el último campeonato mundial de League of Legends?"},
+    {"q": "¿Cómo se juega Yasuo contra Zed en el carril medio?"},
+    {"q": "¿Cuál es la historia de Demacia y Noxus?"}
+  ],
+  "out_of_domain": [
+    {"q": "¿Cómo preparo una tortilla de papas?"},
+    {"q": "¿Cuánto es 15 por 12?"},
+    {"q": "¿Cuál es la capital de Francia?"},
+    {"q": "¿Cómo instalo Python en Windows?"},
+    {"q": "Recomiéndame una película de terror."},
+    {"q": "¿Qué tiempo hará mañana en Santiago?"},
+    {"q": "¿Quién ganó el mundial de fútbol de 2018?"}
+  ]
+}
