@@ -1,0 +1,39 @@
+{
+  "description": "Held-out retrieval evaluation set for the LoL RAG chatbot, same format and groups as questions.json. It was written before any retrieval or grounding change and is not inspected per question while tuning: only aggregate numbers are looked at. Entries used by the dev set are not reused. expected_questions are exact KB 'pregunta' strings.",
+  "in_domain": [
+    {"q": "¿Qué hace el hechizo de invocador Ignite?", "expected_questions": ["¿Qué es Ignite?"]},
+    {"q": "¿Cómo funciona el robo de vida?", "expected_questions": ["¿Qué es LS o robo de vida?"]},
+    {"q": "¿Qué significa que le hagan nerf a un campeón?", "expected_questions": ["¿Qué es un nerf?"]},
+    {"q": "¿Qué te da el buff azul de la jungla?", "expected_questions": ["¿Qué es el buff azul?"]},
+    {"q": "¿Qué es una skillshot y por qué es difícil de acertar?", "expected_questions": ["¿Qué es un skillshot?"]},
+    {"q": "¿Qué significa hacer kite a un enemigo?", "expected_questions": ["¿Qué es kitear o kite?"]},
+    {"q": "¿Qué es el daño en área?", "expected_questions": ["¿Qué es AoE o área de efecto?"]},
+    {"q": "¿Cómo se llama la resistencia contra el daño mágico?", "expected_questions": ["¿Qué es MR o resistencia mágica?"]},
+    {"q": "¿Qué es rendirse en una partida?", "expected_questions": ["¿Qué es Surrender?", "¿Qué significa FF?"]},
+    {"q": "¿Cuál es el trabajo del jungler?", "expected_questions": ["¿Qué es un jungler?"]},
+    {"q": "¿Qué hace el soporte del equipo?", "expected_questions": ["¿Qué es un support?"]},
+    {"q": "¿Qué significa elegir un campeón para contrarrestar al del rival?", "expected_questions": ["¿Qué es un counter pick?"]},
+    {"q": "¿Qué significa que alguien esté trolleando?", "expected_questions": ["¿Qué es un troll?"]},
+    {"q": "What does ADC mean in League?", "expected_questions": ["¿Qué es un ADC?"]},
+    {"q": "What is a teamfight?", "expected_questions": ["¿Qué es un teamfight?"]}
+  ],
+  "uncovered": [
+    {"q": "¿Qué hace la habilidad E de Ezreal?"},
+    {"q": "¿Cuántos puntos de vida tiene Garen en nivel uno?"},
+    {"q": "¿Cómo consigo esencia azul para comprar campeones?"},
+    {"q": "¿Quién es Faker?"},
+    {"q": "¿Cuál es la mejor build para Kai'Sa?"},
+    {"q": "¿Cuándo empieza la próxima temporada de ranked?"},
+    {"q": "¿Qué es Teamfight Tactics?"},
+    {"q": "¿Quién es Vi en la serie Arcane?"}
+  ],
+  "out_of_domain": [
+    {"q": "¿Cómo se hace un huevo frito?"},
+    {"q": "¿Cuántos kilómetros hay entre Santiago y Valparaíso?"},
+    {"q": "¿Qué es la fotosíntesis?"},
+    {"q": "¿Cuántos jugadores hay en un equipo de fútbol?"},
+    {"q": "Dame consejos para estudiar para un examen."},
+    {"q": "¿Quién escribió Cien años de soledad?"},
+    {"q": "What is the best programming language to learn first?"}
+  ]
+}
